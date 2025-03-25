@@ -35,6 +35,9 @@ set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+# fatfs subdirectory
+add_subdirectory(writer/fatfs fatfs_build)
+
 # List your device source files
 set(DEVICE_SOURCES
     devices/src/bmp280.cpp
@@ -46,6 +49,7 @@ set(DEVICE_SOURCES
 # List your calculator source files
 set(CALCULATOR_SOURCES
     calculator/src/calculator.cpp
+    calculator/src/windowAverage.cpp
 )
 # List your dma source files
 set(DMAMANAGER_SOURCES
@@ -64,7 +68,11 @@ set(WRITER_SOURCES
 add_executable(RocketClub2425C++Code
     main.cpp
     ${DEVICE_SOURCES}
+    ${CALCULATOR_SOURCES}
 )
+
+# add fatfs library
+target_link_libraries(RocketClub2425C++Code pico_stdlib pico_fatfs)
 
 # Add the devices/include directory to the include path
 target_include_directories(RocketClub2425C++Code PRIVATE
@@ -75,6 +83,7 @@ target_include_directories(RocketClub2425C++Code PRIVATE
     sampler/include
     writer/include
     common
+    writer/fatfs
 )
 
 pico_set_program_name(RocketClub2425C++Code "RocketClub2425C++Code")

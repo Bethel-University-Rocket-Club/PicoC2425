@@ -50,13 +50,13 @@ bool Calculator::mpx5700gpCalculations(CalcInfo* info, float newVelocity, uint64
 
 CalcInfo Calculator::getAppropriateInfo(FloatArray3FunctionPtr calcFunction) {
     CalcInfo info;
-    if(calcFunction == &bmp280Calculations) {
+    if(calcFunction == &Calculator::bmp280Calculations) {
         info = {new BMP280CalcInfo(), 0};
-    } else if(calcFunction == &mpu6050Calculations) {
+    } else if(calcFunction == &Calculator::mpu6050Calculations) {
         info = {new MPU6050CalcInfo(), 0};
-    } else if(calcFunction == &gtu7Calculations) {
+    } else if(calcFunction == &Calculator::gtu7Calculations) {
         info = {new GTU7CalcInfo, 0};
-    } else if(calcFunction == &mpx5700gpCalculations) {
+    } else if(calcFunction == &Calculator::mpx5700gpCalculations) {
         info = {new MPX5700GPCalcInfo, 0};
     }
     return info;

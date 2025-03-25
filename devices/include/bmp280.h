@@ -28,8 +28,6 @@ class BMP280 {
     bool rawBurstRead(uint16_t startAddr, uint readAmount);
     float compensateTemperature(float rawTemp);
     float compensatePressure(float rawPressure);
-    uint16_t bytesToUShort(byte* data);
-    int16_t bytesToShort(byte* data);
     bool calibrate();
 
     BMP280Calibration* calibrateValues = new BMP280Calibration();

@@ -7,9 +7,7 @@
 #include "dataSampler.h"
 #include "writer.h"
 #include "dmaManager.h"
-
-const uint LED_PIN = PICO_DEFAULT_LED_PIN; // Pico's onboard LED pin
-const float threshold = 2*9.8; //2g's
+#include "config.h"
 
 void blink(int amt, int msDuration) {
     //blink the on board led amt times, with msDuration
