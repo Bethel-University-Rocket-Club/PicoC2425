@@ -1,5 +1,6 @@
 #ifndef WINDOWAVERAGE_H
 #define WINDOWAVERAGE_H
+#include "pico/stdlib.h"
 class WindowAverage {
     public:
     WindowAverage(uint size, float initialValue);

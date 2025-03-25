@@ -16,6 +16,7 @@ float WindowAverage::update(float newValue) {
     average += newVal;
     window[replaceIndex] = newVal;
     replaceIndex  = (replaceIndex + 1) % windowSize;
+    return average;
 }
 
 float WindowAverage::getAverage() {

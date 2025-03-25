@@ -3,6 +3,7 @@
 #include "calcInfo.h"
 #include "windowAverage.h"
 #include "common.h"
+#include "pico/stdlib.h"
 
 #define CALCULATOR_MAX_SIZE 4
 class Calculator;
