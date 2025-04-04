@@ -44,7 +44,6 @@ set(DEVICE_SOURCES
     devices/src/gtu7.cpp
     devices/src/mpu6050.cpp
     devices/src/mpx5700gp.cpp
-    devices/src/sdcard.cpp
 )
 # List your calculator source files
 set(CALCULATOR_SOURCES
@@ -57,7 +56,7 @@ set(DMAMANAGER_SOURCES
 )
 # List your sampler source files
 set(SAMPLER_SOURCES
-    sampler/src/sampler.cpp
+    sampler/src/dataSampler.cpp
 )
 # List your writer source files
 set(WRITER_SOURCES
@@ -65,17 +64,20 @@ set(WRITER_SOURCES
 )
 
 # Add executable. Include the device source files
-add_executable(RocketClub2425C++Code
+add_executable(main
     main.cpp
     ${DEVICE_SOURCES}
     ${CALCULATOR_SOURCES}
+    ${DMAMANAGER_SOURCES}
+    ${SAMPLER_SOURCES}
+    ${WRITER_SOURCES}
 )
 
 # add fatfs library
-target_link_libraries(RocketClub2425C++Code pico_stdlib pico_fatfs)
+target_link_libraries(main pico_stdlib pico_fatfs)
 
 # Add the devices/include directory to the include path
-target_include_directories(RocketClub2425C++Code PRIVATE
+target_include_directories(main PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     calculator/include
     devices/include
@@ -86,27 +88,24 @@ target_include_directories(RocketClub2425C++Code PRIVATE
     writer/fatfs
 )
 
-pico_set_program_name(RocketClub2425C++Code "RocketClub2425C++Code")
-pico_set_program_version(RocketClub2425C++Code "0.1")
-
-# Generate PIO header
-pico_generate_pio_header(RocketClub2425C++Code ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
+pico_set_program_name(main "RocketClub2425C++Code")
+pico_set_program_version(main "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(RocketClub2425C++Code 0)
-pico_enable_stdio_usb(RocketClub2425C++Code 1)
+pico_enable_stdio_uart(main 0)
+pico_enable_stdio_usb(main 1)
 
 # Add the standard library to the build
-target_link_libraries(RocketClub2425C++Code
+target_link_libraries(main
         pico_stdlib)
 
 # Add the standard include files to the build
-target_include_directories(RocketClub2425C++Code PRIVATE
+target_include_directories(main PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # Add any user requested libraries
-target_link_libraries(RocketClub2425C++Code 
+target_link_libraries(main
         hardware_spi
         hardware_i2c
         hardware_dma
@@ -116,4 +115,4 @@ target_link_libraries(RocketClub2425C++Code
         hardware_clocks
         )
 
-pico_add_extra_outputs(RocketClub2425C++Code)
+pico_add_extra_outputs(main)

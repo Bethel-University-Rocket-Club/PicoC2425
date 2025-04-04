@@ -56,7 +56,5 @@ class BMP280 {
         int16_t digP8;
         int16_t digP9;
     };
-
-
 };
 #endif

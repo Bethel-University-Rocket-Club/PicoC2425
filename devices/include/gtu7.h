@@ -11,6 +11,6 @@ class GTU7 {
     uart_inst_t* uart;
     bool throwSentence;
     float recentAltitude;
-    byte buffer[82]; //?
+    char buffer[83]; //maximum sentence length is 82, + 1 for null termination
 };
 #endif
