@@ -1,8 +1,9 @@
 #ifndef WRITER_H
 #define WRITER_H
-#include "tf_card.h"
-#include "fatfs/ff.h"
 #include "common.h"
+#include "sd_card.h"
+#include "ff.h"
+#include "f_util.h"
 
 #define SDBUFSIZE 8192
 #define USTIMESIZE 12
@@ -12,14 +13,13 @@
 
 class Writer {
     public:
-    Writer(pico_fatfs_spi_config_t* config);
+    Writer(sd_card_t* sdCard);
     bool writeHeader();
     bool close();
     bool writeData(DataBuffer* data);
     bool flush();
 
     private:
-    FRESULT write();
     bool writeData(const char* data, int length);
     const char* headerTime(int& length);
     const char* headerSample(int& length);
@@ -38,8 +38,8 @@ class Writer {
     bool formatInt64(char* startLocation, uint8_t& length, uint64_t val);
     uint8_t countDigits20(uint64_t num);
     uint8_t countDigits10(uint32_t num);
+    sd_card_t* sdCard;
     FIL fileOut;
-    FATFS fs;
     /*128 (12 positions for time in microseconds, 10 positions for aggregate sample count, 10 positions for individual sample count
     //8 positions per number, for 12 fields)
     //since its writing as a csv, these estimates for length of numbers (12 for time, 8 for float) are not going to be
@@ -48,6 +48,7 @@ class Writer {
     //*16 to minimize constant switching between not writing and writing
     //8196 bytes (8kB) buffer size
     */
+   
     char writeBuf[SDBUFSIZE];
     uint16_t latestUnwrittenIndex = 0;
 };

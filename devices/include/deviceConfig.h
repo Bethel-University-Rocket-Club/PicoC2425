@@ -8,32 +8,32 @@
 #include "devices.h"
 
     //BMP280 I2C pin config
-    constexpr int BMP280BUS = 1;
-    constexpr int BMP280SDA = 18; //gp
-    constexpr int BMP280SCL = 19; //gp
-    constexpr int BMP280FREQUENCY = 400000; //hz
+    #define BMP280BUS = 1;
+    #define BMP280SDA = 18; //gp
+    #define BMP280SCL = 19; //gp
+    #define BMP280FREQUENCY = 400000; //hz
 
     //MPU6050 I2C pin config
-    constexpr int MPU6050BUS = 0;
-    constexpr int MPU6050SDA = 12; //gp
-    constexpr int MPU6050SCL = 13; //gp
-    constexpr int MPU6050FREQUENCY = 400000; //hz
+    #define MPU6050BUS = 0;
+    #define MPU6050SDA = 12; //gp
+    #define MPU6050SCL = 13; //gp
+    #define MPU6050FREQUENCY = 400000; //hz
 
     //SDCard CS/SPI pin config
-    constexpr int SDCARDCS = 22; //gp
-    constexpr int SDCARDBUS = 0;
-    constexpr int SDCARDSCK = 2; //gp
-    constexpr int SDCARDMOSI = 3; //gp
-    constexpr int SDCARDMISO = 4; //gp
+    #define SDCARDCS = 22; //gp
+    #define SDCARDBUS = 0;
+    #define SDCARDSCK = 2; //gp
+    #define SDCARDMOSI = 3; //gp
+    #define SDCARDMISO = 4; //gp
 
     //GTU7 UART pin config
-    constexpr int GPSBUS = 0;
-    constexpr int GPSTX = 0; //gp
-    constexpr int GPSRX = 1; //gp
-    constexpr int GPSBAUDRATE = 9600;
+    #define GPSBUS = 0;
+    #define GPSTX = 0; //gp
+    #define GPSRX = 1; //gp
+    #define GPSBAUDRATE = 9600;
 
     //MPX5700GP analog pin config
-    constexpr int MPX5700GPANALOG = 26; //gp
+    #define MPX5700GPANALOG = 26; //gp
 
 class Devices {
     public:

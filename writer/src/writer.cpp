@@ -1,45 +1,52 @@
 #include "writer.h"
+#include <stdio.h>
 
-Writer::Writer(pico_fatfs_spi_config_t *config) {
-    pico_fatfs_set_config(config);
-    FRESULT fr;
-    for (int i = 0; i < 5; i++) {
-        fr = f_mount(&fs, "/sd", 1);
-        if (fr == FR_OK) { 
-            break; 
-        }
-        pico_fatfs_reboot_spi();
+Writer::Writer(sd_card_t* sdCard) {
+    this->sdCard = sdCard;
+    FRESULT fr = FR_OK;
+    for(int i = 0; i < 5; i++) {
+        fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
+        if (FR_OK != fr) {
+            blink(5, 100);
+        } else break;
     }
-    fr = f_open(&fileOut, "/sd/data.csv", FA_OPEN_APPEND);
-    //expand file to 64 MB
-    f_expand(&fileOut, 64000000, 0);
+    fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
+    if (FR_OK != fr && FR_EXIST != fr) {
+        blink(10, 100);
+    }
 }
 
 bool Writer::writeHeader() {
     int length;
     const char* portion = headerTime(length);
-    writeData(portion + ',', length+1);
+    writeData(portion, length);
+    writeData(",", 1);
     portion = headerSample(length);
-    writeData(portion + ',', length+1);
+    writeData(portion, length);
+    writeData(",", 1);
     portion = headerBMP(length);
-    writeData(portion + ',', length+1);
+    writeData(portion, length);
+    writeData(",", 1);
     portion = headerMPU(length);
-    writeData(portion + ',', length+1);
+    writeData(portion, length);
+    writeData(",", 1);
     portion = headerGT(length);
-    writeData(portion + ',', length+1);
+    writeData(portion, length);
+    writeData(",", 1);
     portion = headerPitot(length);
-    writeData(portion + '\n', length+1);
+    writeData(portion, length);
+    writeData("\n", 1);
     return true;
 }
 
 bool Writer::close() {
-    f_close(&fileOut);
-    return true;
+    f_close(&fileOut) == FR_OK;
+    return f_unmount(sdCard->pcName);
 }
 
 bool Writer::writeData(DataBuffer *data) {
     if(latestUnwrittenIndex + 200 > SDBUFSIZE) {
-        write();
+        flush();
     }
     uint8_t len = 0;
     formatData(&writeBuf[latestUnwrittenIndex], len, data);
@@ -48,24 +55,21 @@ bool Writer::writeData(DataBuffer *data) {
 }
 
 bool Writer::flush() {
-    return write() == FR_OK;
-}
-
-FRESULT Writer::write() {
-    uint bw;
-    FRESULT fr = f_write(&fileOut, writeBuf, latestUnwrittenIndex, &bw);
-    if(fr != FR_OK || bw != latestUnwrittenIndex+1) {
-        latestUnwrittenIndex = bw - 1;
-        return FR_DENIED;
+    uint bw = 0;
+    FRESULT fr = FR_OK;
+    fr = f_write(&fileOut, writeBuf, latestUnwrittenIndex, &bw);
+    if(bw != latestUnwrittenIndex) {
+        latestUnwrittenIndex = 0;
+        return false;
+    } else {
+        latestUnwrittenIndex = 0;
+        return fr == FR_OK;
     }
-    latestUnwrittenIndex = 0;
-    return fr;
-
 }
 
 bool Writer::writeData(const char *data, int length) {
     if(latestUnwrittenIndex + length > SDBUFSIZE - 200) {
-        write();
+        flush();
     }
     for(int i = 0; i < length; i++) {
         writeBuf[latestUnwrittenIndex+i] = data[i];
@@ -157,8 +161,8 @@ bool Writer::formatDataSample(char *startLocation, uint8_t &length, DataBuffer *
     length = 0;
     float* floats = data->data.values;
     for(uint8_t i = 0, length2 = 0; i < 3; i++) {
-        formatFloat(&startLocation[length], length2, floats[0]);
-        length = length2;
+        formatFloat(&startLocation[length], length2, floats[i]);
+        length += length2;
         startLocation[length] = ',';
         length++;
     }

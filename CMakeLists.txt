@@ -35,9 +35,6 @@ set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# fatfs subdirectory
-add_subdirectory(writer/fatfs fatfs_build)
-
 # List your device source files
 set(DEVICE_SOURCES
     devices/src/bmp280.cpp
@@ -61,7 +58,11 @@ set(SAMPLER_SOURCES
 # List your writer source files
 set(WRITER_SOURCES
     writer/src/writer.cpp
+    writer/src/hw_config.c
 )
+
+# Add the FatFs_SPI library
+add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
 # Add executable. Include the device source files
 add_executable(main
@@ -73,9 +74,6 @@ add_executable(main
     ${WRITER_SOURCES}
 )
 
-# add fatfs library
-target_link_libraries(main pico_stdlib pico_fatfs)
-
 # Add the devices/include directory to the include path
 target_include_directories(main PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
@@ -85,7 +83,6 @@ target_include_directories(main PRIVATE
     sampler/include
     writer/include
     common
-    writer/fatfs
 )
 
 pico_set_program_name(main "RocketClub2425C++Code")
@@ -113,6 +110,7 @@ target_link_libraries(main
         hardware_interp
         hardware_timer
         hardware_clocks
+        FatFs_SPI
         )
 
 pico_add_extra_outputs(main)
