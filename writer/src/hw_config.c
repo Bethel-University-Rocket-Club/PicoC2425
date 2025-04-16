@@ -7,6 +7,7 @@
 #include "diskio.h" /* Declarations of disk functions */
 #include "config.h"
 
+
 // Hardware Configuration of SPI "objects"
 // Note: multiple SD cards can be driven by one SPI if they use different slave
 // selects.
@@ -16,8 +17,7 @@ static spi_t spis[] = {  // One for each SPI.
         .miso_gpio = SDCARDMISO, // GPIO number (not pin number)
         .mosi_gpio = SDCARDMOSI,
         .sck_gpio = SDCARDSCK,
-        .baud_rate = 12500 * 1000,  
-        //.baud_rate = 25 * 1000 * 1000, // Actual frequency: 20833333. 
+        .baud_rate = 12500 * 1000
     }
 };
 

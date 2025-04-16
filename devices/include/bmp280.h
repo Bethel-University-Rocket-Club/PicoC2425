@@ -18,27 +18,54 @@ class BMP280 {
     byte getOperatingMode();
     FloatArray2 requestSample();
     bool hasSample();
-    FloatArray2 readSample();
-    float getAltitude(float seaPressure);
+    bool readSample(FloatArray2& fa);
+    bool getAltitude(float& out);
+    bool setSeaPressure(float seaPressure);
     bool softReset();
     bool setDefaults();
 
     private:
     struct BMP280Calibration;
-    bool rawBurstRead(uint16_t startAddr, uint readAmount);
-    float compensateTemperature(float rawTemp);
-    float compensatePressure(float rawPressure);
+    struct NewRawData;
+    struct OldRawData;
+    struct CompensatedData;
+    float seaPressure;
+    bool check_bmp280_connection();
+    bool rawBurstRead(uint8_t startAddr, uint readAmount);
+    bool compensateTemperature();
+    bool compensatePressure();
     bool calibrate();
+    bool contains(const uint8_t* collection, uint8_t size, uint8_t val);
 
     BMP280Calibration* calibrateValues = new BMP280Calibration();
     uint16_t address;
     i2c_inst_t* i2c;
-    byte tempORate;
-    byte presORate;
-    byte mode;
-    byte standbyTime;
-    byte iirFilter;
-    byte rawData[6];
+    int32_t tFine;
+    float seaPressureRecip = 0.0;
+    byte tempORate = BMP280_OSAMPLE_16;
+    byte presORate = BMP280_OSAMPLE_16;
+    byte mode = BMP280_MODE_FORCED;
+    byte standbyTime = BMP280_STANDBY_0dot5;
+    byte iirFilter = BMP280_IIR_FILTER_0;
+    byte miscBuf[2];
+    byte rawDataBuf[6];
+    NewRawData* rawData = new NewRawData();
+    OldRawData* oldRawData = new OldRawData();
+    CompensatedData* data = new CompensatedData();
+
+    struct NewRawData {
+        int32_t pres;
+        uint32_t temp;
+    };
+    struct OldRawData {
+        int32_t pres;
+        uint32_t temp;
+    };
+    struct CompensatedData {
+        float pres;
+        float temp;
+        float altitude;
+    };
 
     struct BMP280Calibration {
         //temp params
@@ -46,7 +73,7 @@ class BMP280 {
         int16_t digT2;
         int16_t digT3;
         //pressure params
-        uint16_t gitP1;
+        uint16_t digP1;
         int16_t digP2;
         int16_t digP3;
         int16_t digP4;

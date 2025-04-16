@@ -1,5 +1,6 @@
 #ifndef BMP280SETTINGS_H
 #define BMP280SETTINGS_H
+#include "common.h"
 
 // BMP280 default address.
 #define BMP280_I2CADDR 0x76
@@ -61,10 +62,8 @@
 #define BMP280_REGISTER_TEMP_DATA 0xFA
 #define BMP280_REGISTER_HUMIDITY_DATA 0xFD
 
-// C++ arrays for readability and type safety.
-#include <array>
 
-constexpr std::array<int, 6> oSamples = {
+constexpr uint8_t oSamples[] = {
     BMP280_OSAMPLE_0,
     BMP280_OSAMPLE_1,
     BMP280_OSAMPLE_2,
@@ -73,13 +72,13 @@ constexpr std::array<int, 6> oSamples = {
     BMP280_OSAMPLE_16
 };
 
-constexpr std::array<unsigned int, 3> oversample_modes = {
+constexpr uint8_t operatingModes[] = {
     BMP280_MODE_SLEEP,
     BMP280_MODE_FORCED,
     BMP280_MODE_NORMAL
 };
 
-constexpr std::array<unsigned int, 8> standby_times = {
+constexpr uint8_t standbyTimes[] = {
     BMP280_STANDBY_0dot5,
     BMP280_STANDBY_62dot5,
     BMP280_STANDBY_125,
@@ -90,7 +89,7 @@ constexpr std::array<unsigned int, 8> standby_times = {
     BMP280_STANDBY_4000
 };
 
-constexpr std::array<unsigned int, 5> iir_filters = {
+constexpr uint8_t IIRFilters[] = {
     BMP280_IIR_FILTER_0,
     BMP280_IIR_FILTER_2,
     BMP280_IIR_FILTER_4,

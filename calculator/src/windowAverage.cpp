@@ -2,7 +2,8 @@
 
 WindowAverage::WindowAverage(uint windowSize, float initialValue) {
     this->windowSize = windowSize;
-    this->avgCoef = 1.0 / windowSize;
+    this->avgCoef = 1.0 / (float)windowSize;
+    this->average = initialValue;
     this->replaceIndex = 0;
     this->window = new float[windowSize];
     for(uint i = 0; i < windowSize; i++) {
@@ -11,7 +12,7 @@ WindowAverage::WindowAverage(uint windowSize, float initialValue) {
 }
 
 float WindowAverage::update(float newValue) {
-    float newVal = newVal*avgCoef;
+    float newVal = newValue*avgCoef;
     average -= window[replaceIndex];
     average += newVal;
     window[replaceIndex] = newVal;
@@ -21,4 +22,13 @@ float WindowAverage::update(float newValue) {
 
 float WindowAverage::getAverage() {
     return average;
+}
+
+bool WindowAverage::reMake(float initialValue) {
+    this->replaceIndex = 0;
+    this->average = initialValue;
+    for(uint i = 0; i < this->windowSize; i++) {
+        window[i] = initialValue*avgCoef;
+    }
+    return true;
 }

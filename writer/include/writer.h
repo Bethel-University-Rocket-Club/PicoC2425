@@ -5,15 +5,27 @@
 #include "ff.h"
 #include "f_util.h"
 
+#ifndef SDBUFSIZE
 #define SDBUFSIZE 8192
+#endif
+#ifndef USTIMESIZE
 #define USTIMESIZE 12
+#endif
+#ifndef ADDSAMPLESIZE
 #define AGGSAMPLESIZE 10
+#endif
+#ifndef INDSAMPLESIZE
 #define INDSAMPLESIZE 10
+#endif
+#ifndef FLOATNUSMIZE
 #define FLOATNUMSIZE 8
+#endif
 
 class Writer {
     public:
     Writer(sd_card_t* sdCard);
+    Writer();
+    bool init(sd_card_t* sdCard);
     bool writeHeader();
     bool close();
     bool writeData(DataBuffer* data);
@@ -33,7 +45,7 @@ class Writer {
     bool formatNullBeforeSamples(char* startLocation, uint8_t& length, DataBuffer* data);
     bool formatDataSample(char* startLocation, uint8_t& length, DataBuffer* data);
     bool formatNullAfterSamples(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatFloat(char* startLocation, uint8_t& length, float val);
+    bool formatFloat(char* startLocation, uint8_t& length, float val, uint8_t decimalPrecision);
     bool formatInt32(char* startLocation, uint8_t& length, uint32_t val);
     bool formatInt64(char* startLocation, uint8_t& length, uint64_t val);
     uint8_t countDigits20(uint64_t num);

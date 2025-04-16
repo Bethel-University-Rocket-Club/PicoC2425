@@ -1,9 +1,12 @@
 #include "calculator.h"
+#include <stdexcept>
 
 int Calculator::addSensor(FloatArray3FunctionPtr calcFunction) {
     int identifier = getNextIdentifier();
     calcFunctions[identifier] = calcFunction;
-    return 0; // Placeholder
+    getAppropriateInfo(identifier, calcFunction);
+    identifiers[identifier] = true;
+    return identifier;
 }
 
 bool Calculator::removeSensor(int identifier) {
@@ -11,59 +14,115 @@ bool Calculator::removeSensor(int identifier) {
     return !identifiers[identifier];
 }
 
-bool Calculator::newSample(int identifier, float newMeasurement, uint64_t newTime, FloatArray3* out) {
-    // Implement new sample processing logic here.
-    return false;
+bool Calculator::newSample(int identifier, float newMeasurement, double newTime, FloatArray3& out) {
+    return (this->*calcFunctions[identifier])(sensorInfo[identifier], newMeasurement, newTime, out);
 }
 
 bool Calculator::configureInitialOffset(int identifier, float offset) {
-    // Implement initial offset configuration logic here.
-    return false; // Placeholder
-}
-
-bool Calculator::bmp280Calculations(CalcInfo* info, float newAltitude, uint64_t newTime, FloatArray3* out) {
-    BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(info->sensorSpecificData);
-    // Implement BMP280 calculations here.
-    return false;
-
-}
-
-bool Calculator::mpu6050Calculations(CalcInfo* info, float newAcceleration, uint64_t newTime, FloatArray3* out) {
-    MPU6050CalcInfo* bmp280InfoPtr = static_cast<MPU6050CalcInfo*>(info->sensorSpecificData);
-    // Implement MPU6050 calculations here.
-    return false;
-
-}
-
-bool Calculator::gtu7Calculations(CalcInfo* info, float newAltitude, uint64_t newTime, FloatArray3* out) {
-    GTU7CalcInfo* bmp280InfoPtr = static_cast<GTU7CalcInfo*>(info->sensorSpecificData);
-    // Implement GTU7 calculations here.
-    return false;
-}
-
-bool Calculator::mpx5700gpCalculations(CalcInfo* info, float newVelocity, uint64_t newTime, FloatArray3* out) {
-    MPX5700GPCalcInfo* bmp280InfoPtr = static_cast<MPX5700GPCalcInfo*>(info->sensorSpecificData);
-    // Implement MPX5700GP calculations here.
-    return false;
-
-}
-
-CalcInfo Calculator::getAppropriateInfo(FloatArray3FunctionPtr calcFunction) {
-    CalcInfo info;
-    if(calcFunction == &Calculator::bmp280Calculations) {
-        info = {new BMP280CalcInfo(), 0};
-    } else if(calcFunction == &Calculator::mpu6050Calculations) {
-        info = {new MPU6050CalcInfo(), 0};
-    } else if(calcFunction == &Calculator::gtu7Calculations) {
-        info = {new GTU7CalcInfo, 0};
-    } else if(calcFunction == &Calculator::mpx5700gpCalculations) {
-        info = {new MPX5700GPCalcInfo, 0};
+    if(sensorInfo[identifier].type == CalcInfo::BMP280CalcInfo) {
+        BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        bmp280InfoPtr->offsetInfo = offset;
+        return true;
+    } else if(sensorInfo[identifier].type == CalcInfo::GTU7CalcInfo) {
+        GTU7CalcInfo* gtu7InfoPtr = static_cast<GTU7CalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        gtu7InfoPtr->offsetInfo = offset;
+        return true;
+    } else if(sensorInfo[identifier].type == CalcInfo::MPX5700GPCalcInfo) {
+        MPX5700GPCalcInfo* mpx5700gpInfoPtr = static_cast<MPX5700GPCalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        mpx5700gpInfoPtr->offsetInfo = offset;
+        return true;
     }
-    return info;
+    //not a type that has offset info
+    return false;
+}
+
+bool Calculator::bmp280Calculations(CalcInfo& info, float newAltitude, double newTime, FloatArray3& out) {
+    BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(info.sensorSpecificData);
+    double elapsedTime = newTime - info.timeInfo;
+    newAltitude -= bmp280InfoPtr->offsetInfo;
+    float initAvg = 0.0;
+    bmp280InfoPtr->recentAltitudeValues->getValue(initAvg);
+    //updated value gets put in out->values[0]
+    bmp280InfoPtr->recentAltitudeValues->update(newAltitude, out.values[0]);
+    out.values[1] = calculateDerivative(initAvg, out.values[0], elapsedTime);
+    out.values[2] = calculateDerivative(bmp280InfoPtr->pastVelocity, out.values[1], elapsedTime);
+    bmp280InfoPtr->pastVelocity = out.values[1];
+    info.timeInfo = newTime;
+    return true;
+
+}
+
+bool Calculator::mpu6050Calculations(CalcInfo& info, float newAcceleration, double newTime, FloatArray3& out) {
+    MPU6050CalcInfo* mpu6050InfoPtr = static_cast<MPU6050CalcInfo*>(info.sensorSpecificData);
+    double elapsedTime = newTime - info.timeInfo;
+    mpu6050InfoPtr->runningVelocity = calculateIntegral(mpu6050InfoPtr->runningVelocity, newAcceleration, elapsedTime);
+    mpu6050InfoPtr->runningAltitude += secondKinEq(mpu6050InfoPtr->runningVelocity, newAcceleration, elapsedTime);
+    info.timeInfo = newTime;
+    out.values[0] = mpu6050InfoPtr->runningAltitude;
+    out.values[1] = mpu6050InfoPtr->runningVelocity;
+    out.values[2] = newAcceleration;
+    return true;
+
+}
+
+bool Calculator::gtu7Calculations(CalcInfo& info, float newAltitude, double newTime, FloatArray3& out) {
+    GTU7CalcInfo* gtu7InfoPtr = static_cast<GTU7CalcInfo*>(info.sensorSpecificData);
+    double elapsedTime = newTime - info.timeInfo;
+    newAltitude -= gtu7InfoPtr->offsetInfo;
+    out.values[1] = calculateDerivative(newAltitude, newAltitude, elapsedTime);
+    out.values[2] = calculateDerivative(gtu7InfoPtr->pastVelocity, out.values[1], elapsedTime);
+    out.values[0] = newAltitude;
+    gtu7InfoPtr->pastVelocity = out.values[1];
+    info.timeInfo = newTime;
+    return true;
+}
+
+bool Calculator::mpx5700gpCalculations(CalcInfo& info, float newVelocity, double newTime, FloatArray3& out) {
+    MPX5700GPCalcInfo* mpx5700gpInfoPtr = static_cast<MPX5700GPCalcInfo*>(info.sensorSpecificData);
+    double elapsedTime = newTime - info.timeInfo;
+    newVelocity -= mpx5700gpInfoPtr->offsetInfo;
+    float oldVel = 0.0;
+    mpx5700gpInfoPtr->recentVelocityValues->getValue(oldVel);
+    mpx5700gpInfoPtr->recentVelocityValues->update(newVelocity, out.values[1]);
+    out.values[2] = calculateDerivative(oldVel, out.values[1], elapsedTime);
+    mpx5700gpInfoPtr->runningAltitude += secondKinEq(oldVel, out.values[2], elapsedTime);
+    out.values[0] = mpx5700gpInfoPtr->runningAltitude;
+    info.timeInfo = newTime;
+    return true;
+
+}
+
+bool Calculator::setStartTime(double newTimeSeconds) {
+    for(CalcInfo ci : sensorInfo) {
+        ci.timeInfo = newTimeSeconds;
+    }
+    return true;
+}
+
+bool Calculator::getAppropriateInfo(int index, FloatArray3FunctionPtr calcFunction) {
+    CalcInfo& info = sensorInfo[index];
+    if(calcFunction == &Calculator::bmp280Calculations) {
+        BMP280CalcInfo* bmp280Info = new BMP280CalcInfo{new IIRFilter(0.05), 0, 0};
+        info.sensorSpecificData = bmp280Info;
+        info.type = CalcInfo::BMP280CalcInfo;
+    } else if(calcFunction == &Calculator::mpu6050Calculations) {
+        MPU6050CalcInfo* mpu6050Info = new MPU6050CalcInfo{0, 0};
+        info.sensorSpecificData = mpu6050Info;
+        info.type = CalcInfo::MPU6050CalcInfo;
+    } else if(calcFunction == &Calculator::gtu7Calculations) {
+        GTU7CalcInfo* gtu7Info = new GTU7CalcInfo{0, 0, 0};
+        info.sensorSpecificData = gtu7Info;
+        info.type = CalcInfo::GTU7CalcInfo;
+    } else if(calcFunction == &Calculator::mpx5700gpCalculations) {
+        MPX5700GPCalcInfo* mpx5700gpInfo = new MPX5700GPCalcInfo{new IIRFilter(0.05), 0};
+        info.sensorSpecificData = mpx5700gpInfo;
+        info.type = CalcInfo::MPX5700GPCalcInfo;
+    }
+    return true;
 }
 
 int Calculator::getNextIdentifier() {
-    for(uint i = 0; i < CALCULATOR_MAX_SIZE; i++) {
+    for(uint i = 0; i < CALCULATORMAXSIZE; i++) {
         if(!identifiers[i]) {
             return i;
         }
@@ -71,17 +130,17 @@ int Calculator::getNextIdentifier() {
     return -1;
 }
 
-float Calculator::calculateDerivative(float oldMeasurement, float changeRate, float elapsedSeconds) {
+float Calculator::calculateIntegral(float oldMeasurement, float changeRate, double elapsedSeconds) {
     return oldMeasurement + changeRate*elapsedSeconds;
 }
 
-float Calculator::calculateIntegral(float measurementBefore, float measurementAfter, float elapsedSeconds) {
+float Calculator::calculateDerivative(float measurementBefore, float measurementAfter, double elapsedSeconds) {
     return (measurementAfter - measurementBefore) / elapsedSeconds;
 }
 
 /*
 returns delta displacement
 */
-float Calculator::secondKinEq(float initialVelocity, float acceleration, float elapsedSeconds) {
+float Calculator::secondKinEq(float initialVelocity, float acceleration, double elapsedSeconds) {
     return initialVelocity*elapsedSeconds + acceleration*elapsedSeconds*elapsedSeconds;
 }

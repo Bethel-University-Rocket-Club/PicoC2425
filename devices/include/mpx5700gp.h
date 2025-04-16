@@ -1,10 +1,20 @@
 #ifndef MPX5700GP_H
 #define MPX5700GP_H
 #include "common.h"
+#include "hardware/adc.h"
+
 
 class MPX5700GP {
     public:
     MPX5700GP(byte adcPin);
-    float getVelocity();
+    bool getVelocity(float& velocity);
+    void setAirDensity(float density);
+    bool getDrift(float& drift);
+
+    private:
+    uint16_t oldRaw;
+    float oldVel;
+    byte adcPin;
+    float airDensityRecip;
 };
 #endif

@@ -6,6 +6,7 @@ class WindowAverage {
     WindowAverage(uint size, float initialValue);
     float update(float newValue);
     float getAverage();
+    bool reMake(float initialValue);
 
     private:
     uint windowSize;

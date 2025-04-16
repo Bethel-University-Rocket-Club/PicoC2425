@@ -1,5 +1,4 @@
 #include "writer.h"
-#include <stdio.h>
 
 Writer::Writer(sd_card_t* sdCard) {
     this->sdCard = sdCard;
@@ -14,6 +13,27 @@ Writer::Writer(sd_card_t* sdCard) {
     if (FR_OK != fr && FR_EXIST != fr) {
         blink(10, 100);
     }
+}
+
+Writer::Writer() {
+}
+
+bool Writer::init(sd_card_t *sdCard) {
+    this->sdCard = sdCard;
+    FRESULT fr = FR_OK;
+    for(int i = 0; i < 5; i++) {
+        fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
+        if (FR_OK != fr) {
+            blink(5, 100);
+            return false;
+        } else break;
+    }
+    fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
+    if (FR_OK != fr && FR_EXIST != fr) {
+        blink(10, 100);
+        return false;
+    }
+    return true;
 }
 
 bool Writer::writeHeader() {
@@ -161,7 +181,7 @@ bool Writer::formatDataSample(char *startLocation, uint8_t &length, DataBuffer *
     length = 0;
     float* floats = data->data.values;
     for(uint8_t i = 0, length2 = 0; i < 3; i++) {
-        formatFloat(&startLocation[length], length2, floats[i]);
+        formatFloat(&startLocation[length], length2, floats[i], data->sigDecimalDigits);
         length += length2;
         startLocation[length] = ',';
         length++;
@@ -179,9 +199,12 @@ bool Writer::formatNullAfterSamples(char *startLocation, uint8_t &length, DataBu
     }
     return true;
 }
-//5 decimal places of precision
-bool Writer::formatFloat(char *startLocation, uint8_t &length, float val) {
-    static const uint32_t pow10[] = {10, 100, 1000, 10000, 100000};
+
+bool Writer::formatFloat(char *startLocation, uint8_t &length, float val, uint8_t decimalPrecision) {
+    if(decimalPrecision > 5) {
+        decimalPrecision = 5;
+    }
+    static const uint32_t pow10[] = {1, 10, 100, 1000, 10000, 100000};
     length = 0;
     // --- Handle Negative Numbers ---
     bool negative = (val < 0.0f) && !(*(uint32_t*)&val == (1 << 31)); // Exclude -0.0f
@@ -195,16 +218,16 @@ bool Writer::formatFloat(char *startLocation, uint8_t &length, float val) {
     uint32_t integer = (uint32_t)val;
     //split fraction part
     float frac = val - integer;
-    uint32_t fractional = (uint32_t)(frac * 10000 + 0.5f);
-    integer += (fractional >= 10000);
-    fractional = fractional * !(fractional >= 10000);
+    uint32_t fractional = (uint32_t)(frac * pow10[decimalPrecision] + 0.5f);
+    integer += (fractional >= pow10[decimalPrecision]);
+    fractional = fractional * !(fractional >= pow10[decimalPrecision]);
     // --- Write Integer Part ---
     formatInt32(startLocation, length, integer);
     startLocation += length;
     length += negative;
 
     // --- Write Fractional Part with Leading Zeros ---
-    uint8_t leadingZCount = 4 - countDigits10(fractional);
+    uint8_t leadingZCount = decimalPrecision - countDigits10(fractional);
     leadingZCount = leadingZCount * (fractional != 0);
     //only write '.' if decimal portion != 0, same lgic for length
     *startLocation = '.';
@@ -253,7 +276,7 @@ bool Writer::formatInt64(char *startLocation, uint8_t &length, uint64_t val) {
 inline uint8_t Writer::countDigits20(uint64_t num) {
     static const uint64_t pow10[] = {0, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 
         10000000000, 100000000000, 1000000000000, 10000000000000, 100000000000000, 1000000000000000, 10000000000000000,
-        100000000000000000, 1000000000000000000, (uint64_t)10000000000000000000};
+        (uint64_t)100000000000000000, (uint64_t)1000000000000000000, (uint64_t)10000000000000000000};
     uint8_t log2 = 64 - __builtin_clzll(num | 1);  // Step 1: Bit length
     uint8_t d = (log2 * 1233) >> 12;              // Step 2: log10 approximation
     d -= (num < pow10[d]);                        // Step 3: Adjust overestimation
