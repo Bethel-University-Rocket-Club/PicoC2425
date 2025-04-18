@@ -24,8 +24,6 @@
 class Writer {
     public:
     Writer(sd_card_t* sdCard);
-    Writer();
-    bool init(sd_card_t* sdCard);
     bool writeHeader();
     bool close();
     bool writeData(DataBuffer* data);
@@ -60,7 +58,6 @@ class Writer {
     //*16 to minimize constant switching between not writing and writing
     //8196 bytes (8kB) buffer size
     */
-   
     char writeBuf[SDBUFSIZE];
     uint16_t latestUnwrittenIndex = 0;
 };

@@ -69,9 +69,10 @@ bool Calculator::gtu7Calculations(CalcInfo& info, float newAltitude, double newT
     GTU7CalcInfo* gtu7InfoPtr = static_cast<GTU7CalcInfo*>(info.sensorSpecificData);
     double elapsedTime = newTime - info.timeInfo;
     newAltitude -= gtu7InfoPtr->offsetInfo;
-    out.values[1] = calculateDerivative(newAltitude, newAltitude, elapsedTime);
+    out.values[1] = calculateDerivative(gtu7InfoPtr->pastAltitude, newAltitude, elapsedTime);
     out.values[2] = calculateDerivative(gtu7InfoPtr->pastVelocity, out.values[1], elapsedTime);
     out.values[0] = newAltitude;
+    gtu7InfoPtr->pastAltitude = newAltitude;
     gtu7InfoPtr->pastVelocity = out.values[1];
     info.timeInfo = newTime;
     return true;

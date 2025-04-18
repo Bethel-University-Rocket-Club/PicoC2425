@@ -49,14 +49,14 @@ set(CALCULATOR_SOURCES
     calculator/src/windowAverage.cpp
     calculator/src/IIRFilter.cpp
 )
-# List your sampler source files
-set(SAMPLER_SOURCES
-    sampler/src/dataSampler.cpp
-)
 # List your writer source files
 set(WRITER_SOURCES
     writer/src/writer.cpp
     writer/src/hw_config.c
+)
+# List your queue source files
+set(QUEUE_SOURCES
+    queue/src/circularQueue.cpp
 )
 
 # Add the FatFs_SPI library
@@ -67,9 +67,8 @@ add_executable(main
     main.cpp
     ${DEVICE_SOURCES}
     ${CALCULATOR_SOURCES}
-    ${DMAMANAGER_SOURCES}
-    ${SAMPLER_SOURCES}
     ${WRITER_SOURCES}
+    ${QUEUE_SOURCES}
 )
 
 # Add the devices/include directory to the include path
@@ -77,8 +76,8 @@ target_include_directories(main PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     calculator/include
     devices/include
-    sampler/include
     writer/include
+    queue/include
     common
 )
 
@@ -93,7 +92,7 @@ pico_enable_stdio_usb(main 1)
 target_link_libraries(main
         pico_stdlib)
 
-target_compile_options(main PRIVATE -O0 -g -fexceptions)
+target_compile_options(main PRIVATE -O3)
 
 # Add the standard include files to the build
 target_include_directories(main PRIVATE
@@ -111,6 +110,7 @@ target_link_libraries(main
         hardware_timer
         hardware_clocks
         FatFs_SPI
+        pico_multicore
         )
 
 pico_add_extra_outputs(main)

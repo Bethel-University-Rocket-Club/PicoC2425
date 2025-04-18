@@ -2,7 +2,7 @@
 #define CONFIG_H
 #define LED_PIN PICO_DEFAULT_LED_PIN // Pico's onboard LED pin
 
-#define THRESHOLD (2*9.8) //2g's
+#define THRESHOLD (2) //2m/s/s
 #define SDBUFSIZE 8192 //128 for data, *4 to get sdcard sector size, *16 for bulk writing - faster than any other power of 2 i've tried
 #define USTIMESIZE 12 //how many positions time in microseconds is given when written
 #define AGGSAMPLESIZE 10 //how many positions aggregate sample count is given when written
@@ -48,7 +48,7 @@
 
 #define MPU6050NOAX
 #define MPU6050NOAY
-#define MPU6050INVAZ
+//#define MPU6050INVAZ
 #define MPU6050NOGX
 #define MPU6050NOGY
 #define MPU6050NOGZ

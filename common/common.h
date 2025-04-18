@@ -13,12 +13,14 @@ struct FloatArray3 {
 struct FloatArray2 {
     float values[2];
 };
+
 struct DataBuffer {
     uint64_t elapsedTime;
     uint32_t aggSampleNum;
     uint32_t sensorSampleNum;
     uint8_t sensorNum;
     uint8_t sensorMax; //max value for sensorNum
+    float sensorSample;
     FloatArray3 data;
     uint8_t sigDecimalDigits;
 };

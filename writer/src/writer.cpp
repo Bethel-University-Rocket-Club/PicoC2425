@@ -15,27 +15,6 @@ Writer::Writer(sd_card_t* sdCard) {
     }
 }
 
-Writer::Writer() {
-}
-
-bool Writer::init(sd_card_t *sdCard) {
-    this->sdCard = sdCard;
-    FRESULT fr = FR_OK;
-    for(int i = 0; i < 5; i++) {
-        fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
-        if (FR_OK != fr) {
-            blink(5, 100);
-            return false;
-        } else break;
-    }
-    fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
-    if (FR_OK != fr && FR_EXIST != fr) {
-        blink(10, 100);
-        return false;
-    }
-    return true;
-}
-
 bool Writer::writeHeader() {
     int length;
     const char* portion = headerTime(length);

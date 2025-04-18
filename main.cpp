@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "hardware/timer.h"
 #include "hardware/clocks.h"
 #include "config.h"
@@ -7,8 +8,8 @@
 #include "devices.h"
 #include "deviceConfig.h"
 #include "calculator.h"
-#include "dataSampler.h"
 #include "writer.h"
+#include "circularQueue.h"
 #include "hw_config.h"
 
 Devices* d;
@@ -18,12 +19,17 @@ BMP280* bmp;
 MPU6050* mpu;
 GTU7* gtu;
 MPX5700GP* mpx;
+CircularQueue* queue;
 
-bool setup() {
-    // Configure the onboard LED GPIO as an output.
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-    blink(3, 500);
+bool END = false;
+bool DONEWRITE = false;
+uint64_t STARTTIMEMICRO = 0.0;
+int BMPID;
+int MPUID;
+int GTUID;
+int MPXID;
+
+bool validateSensors() {
     sd_card_t* sd = sd_get_by_num(0);
     sd->spi->hw_inst = spi0;
     sd->spi->miso_gpio = SDCARDMISO;
@@ -33,36 +39,178 @@ bool setup() {
     d = new Devices();
     w = new Writer(sd);
     c = new Calculator();
+    queue = new CircularQueue();
     bmp = d->GetPressureSensor();
     mpu = d->GetAccelerometer();
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
-    w->writeHeader();
     return true;
 }
 
-bool validateStart() {
-    //validate bmp280
-    //validate mpu6050
-    //validate gtu7
-    //validate pitot
-    //validate sdcard
-    return false;
+bool setup() {
+    // Configure the onboard LED GPIO as an output.
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+    if(!validateSensors()) {
+        blink(1000, 100);
+    }
+    blink(3, 500); //remove eventually
+    w->writeHeader();
+    w->flush();
+    bmp->setSeaPressure(1013.25);
+    mpx->setAirDensity(1.225);
+    float measure = 0.0;
+    BMPID = c->addSensor(&Calculator::bmp280Calculations);
+    MPUID = c->addSensor(&Calculator::mpu6050Calculations);
+    MPXID = c->addSensor(&Calculator::mpx5700gpCalculations);
+    GTUID = c->addSensor(&Calculator::gtu7Calculations);
+    bmp->getAltitude(measure);
+    c->configureInitialOffset(BMPID, measure);
+    gtu->getAltitude(measure);
+    c->configureInitialOffset(GTUID, measure);
+    mpx->getDrift(measure);
+    c->configureInitialOffset(MPXID, measure);
+    printf("setup\n");
+    return true;
 }
 
 bool startCondition() {
-    //wait for mpu6050 to accelerate past the threshold, then return true
+    float accelUp = 0.0;
+    while(true) {
+        mpu->getAccelZ(accelUp);
+        if(accelUp > THRESHOLD) {
+            STARTTIMEMICRO = time_us_64();
+            c->setStartTime(STARTTIMEMICRO * 0.000001);
+            printf("Starting\n");
+            return true;
+        }
+    }
     return false;
 }
 
-bool end() {
-    //closedown, prepare sdcard for removal.
-    //potentially other after sampling activities, reorganizaing data, etc
-    return false;
+bool endCondition(float& altitude) {
+    static float apogee = 0.0;
+    static uint32_t apogeeTime = STARTTIMEMICRO;
+    if(time_us_64() - STARTTIMEMICRO > 1000000) {
+        printf("end\n");
+        return true;
+    }
+    if(altitude < apogee) {
+        //1 second of the measurement being below apogee
+        if(time_us_64() - apogeeTime > 1000000) {
+            return true;
+        }
+        return false;
+    } else {
+        apogeeTime = time_us_64() - STARTTIMEMICRO;
+        apogee = altitude;
+        return false;
+    }
 }
 
-void mainLoop() {
-    //main logic for what to do when to begin sampling
+void calcWriteLoop() {
+    printf("startCore1");
+    DataBuffer* curRead = nullptr;
+    float altitude = 0.0;
+    while(!endCondition(altitude)) {
+        if(queue->size() > 0) {
+            printf("QSize:%d\n", queue->size());
+            curRead = queue->dequeue();
+            c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
+            w->writeData(curRead);
+            if(curRead->sensorNum == 0) {
+                //altitude = curRead->sensorSample;
+            }
+            queue->finishDequeue();
+        }
+    }
+    END = true;
+    while(queue->size() > 0) {
+        curRead = queue->dequeue();
+        c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
+        w->writeData(curRead);
+        if(curRead->sensorNum == 0) {
+            altitude = curRead->sensorSample;
+        }
+        queue->finishDequeue();
+    }
+    w->flush();
+    w->close();
+    DONEWRITE = true;
+}
+
+void samplingLoop() {
+    printf("startCore0\n");
+    DataBuffer* curWrite = nullptr;
+    uint64_t elapsedTime = time_us_64() - STARTTIMEMICRO;
+    uint32_t aggSampleCount = 0;
+    uint32_t countBMP = 0;
+    uint32_t countMPU = 0;
+    uint32_t countGTU = 0;
+    uint32_t countMPX = 0;
+    float measure = 0.0;
+    while(!END) {
+        elapsedTime = time_us_64() - STARTTIMEMICRO;
+        if(bmp->getAltitude(measure) && !queue->isFull()) {
+            aggSampleCount++;
+            countBMP++;
+            curWrite = queue->startEnqueue();
+            curWrite->aggSampleNum = aggSampleCount;
+            curWrite->sensorSampleNum = countBMP;
+            curWrite->elapsedTime = elapsedTime;
+            curWrite->sensorSample = measure;
+            curWrite->sensorMax = 3;
+            curWrite->sensorNum = 0;
+            curWrite->sigDecimalDigits = 2;
+            curWrite->data.values[0] = measure;
+            queue->finishEnqueue();
+        }
+        elapsedTime = time_us_64() - STARTTIMEMICRO;
+        if(mpu->getAccelZ(measure) && !queue->isFull()) {
+            aggSampleCount++;
+            countMPU++;
+            curWrite = queue->startEnqueue();
+            curWrite->aggSampleNum = aggSampleCount;
+            curWrite->sensorSampleNum = countMPU;
+            curWrite->elapsedTime = elapsedTime;
+            curWrite->sensorSample = measure;
+            curWrite->sensorMax = 3;
+            curWrite->sensorNum = 1;
+            curWrite->sigDecimalDigits = 3;
+            curWrite->data.values[2] = measure;
+            queue->finishEnqueue();
+        }
+        elapsedTime = time_us_64() - STARTTIMEMICRO;
+        if(gtu->getAltitude(measure) && !queue->isFull()) {
+            aggSampleCount++;
+            countGTU++;
+            curWrite = queue->startEnqueue();
+            curWrite->aggSampleNum = aggSampleCount;
+            curWrite->sensorSampleNum = countGTU;
+            curWrite->elapsedTime = elapsedTime;
+            curWrite->sensorSample = measure;
+            curWrite->sensorMax = 3;
+            curWrite->sensorNum = 2;
+            curWrite->sigDecimalDigits = 2;
+            curWrite->data.values[0] = measure;
+            queue->finishEnqueue();
+        }
+        elapsedTime = time_us_64() - STARTTIMEMICRO;
+        if(mpx->getVelocity(measure) && !queue->isFull()) {
+            aggSampleCount++;
+            countMPX++;
+            curWrite = queue->startEnqueue();
+            curWrite->aggSampleNum = aggSampleCount;
+            curWrite->sensorSampleNum = countMPX;
+            curWrite->elapsedTime = elapsedTime;
+            curWrite->sensorSample = measure;
+            curWrite->sensorMax = 3;
+            curWrite->sensorNum = 3;
+            curWrite->sigDecimalDigits = 2;
+            curWrite->data.values[1] = measure;
+            queue->finishEnqueue();
+        }
+    }
 }
 
 void writeToUART0(const char* sentence, uint32_t length) {
@@ -73,47 +221,17 @@ void writeToUART0(const char* sentence, uint32_t length) {
 
 int main() {
     stdio_init_all();
+    sleep_ms(100);
     setup();
-    DataBuffer datas[4] = {};
-    datas[0].sensorNum = 0;
-    datas[1].sensorNum = 1;
-    datas[2].sensorNum = 2;
-    datas[3].sensorNum = 3;
-    datas[0].sensorMax = 3;
-    datas[1].sensorMax = 3;
-    datas[2].sensorMax = 3;
-    datas[3].sensorMax = 3;
-    datas[0].sigDecimalDigits = 2;
-    datas[1].sigDecimalDigits = 3;
-    datas[2].sigDecimalDigits = 2;
-    datas[3].sigDecimalDigits = 1;
-
-    bmp->setSeaPressure(1013.25);
-    mpx->setAirDensity(1.225);
-    float initAlt = 0.0;
-    float ax = 0.0;
-    float vel = 0.0;
-    float gtuAlt = 0.0;
-    bool success = bmp->getAltitude(initAlt);
-    success = gtu->getAltitude(gtuAlt);
-    int bmpID = c->addSensor(&Calculator::bmp280Calculations);
-    c->configureInitialOffset(bmpID, initAlt);
-    int mpuID = c->addSensor(&Calculator::mpu6050Calculations);
-    int mpxID = c->addSensor(&Calculator::mpx5700gpCalculations);
-    mpx->getDrift(vel);
-    c->configureInitialOffset(mpxID, vel);
-    int gtuID = c->addSensor(&Calculator::gtu7Calculations);
-    c->configureInitialOffset(gtuID, gtuAlt);
-    
-    uint32_t aggSampleNum = 0;
-    uint64_t startTime = time_us_64();
-    uint64_t etime = time_us_64() - startTime;
-    double dTime = etime/1000000.0;
-    c->setStartTime(dTime);
-    int countBMP = 0;
-    int countMPU = 0;
-    int countMPX = 0;
-    int countGTU = 0;
+    while(!startCondition()) {
+        tight_loop_contents();
+    }
+    multicore_launch_core1(calcWriteLoop);
+    samplingLoop();
+    while(!DONEWRITE) {
+        tight_loop_contents();
+    }
+    printf("done\n");
     /*
     success = gtu->getAltitude(gtuAlt);
     printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
@@ -146,60 +264,5 @@ int main() {
     printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
     //get alt, check success
     */
-    for(;dTime < 1.0;) {
-        etime = time_us_64() - startTime;
-        dTime = etime * 0.000001f;
-        if(bmp->getAltitude(initAlt)) {
-            countBMP++;
-            aggSampleNum++;
-            c->newSample(bmpID, initAlt, dTime, datas[0].data);
-            datas[0].aggSampleNum = aggSampleNum;
-            datas[0].elapsedTime = etime;
-            datas[0].sensorSampleNum += 1;
-            //printf("bmp: %f %f %f\n", datas[0].data.values[0], datas[0].data.values[1], datas[0].data.values[2]);
-            w->writeData(&datas[0]);
-        }
-        etime = time_us_64() - startTime;
-        dTime = etime * 0.000001f;
-        if(mpu->getAccelZ(ax)) {
-            countMPU++;
-            aggSampleNum++;
-            c->newSample(mpuID, ax, dTime, datas[1].data);
-            datas[1].aggSampleNum = aggSampleNum;
-            datas[1].elapsedTime = etime;
-            datas[1].sensorSampleNum += 1;
-            //printf("mpu: %f %f %f\n", datas[1].data.values[0], datas[1].data.values[1], datas[1].data.values[2]);
-            w->writeData(&datas[1]);
-        }
-        etime = time_us_64() - startTime;
-        dTime = etime * 0.000001f;
-        if(mpx->getVelocity(vel)) {
-            countMPX++;
-            aggSampleNum++;
-            c->newSample(mpxID, vel, dTime, datas[3].data);
-            datas[3].aggSampleNum = aggSampleNum;
-            datas[3].elapsedTime = etime;
-            datas[3].sensorSampleNum += 1;
-            //printf("mpx: %f %f %f\n", datas[3].data.values[0], datas[3].data.values[1], datas[3].data.values[2]);
-            w->writeData(&datas[3]);
-        }
-        etime = time_us_64() - startTime;
-        dTime = etime * 0.000001f;
-        if(gtu->getAltitude(gtuAlt)) {
-            //printf("gps sample\n");
-            countGTU++;
-            aggSampleNum++;
-            c->newSample(gtuID, gtuAlt, dTime, datas[2].data);
-            datas[2].aggSampleNum = aggSampleNum;
-            datas[2].elapsedTime = etime;
-            datas[2].sensorSampleNum += 1;
-            //printf("gtu: %f %f %f\n", datas[2].data.values[0], datas[2].data.values[1], datas[2].data.values[2]);
-            w->writeData(&datas[2]);
-        }
-            
-    }
-    printf("countBMP:%d countMPU:%d countGTU:%d countMPX:%d\n", countBMP, countMPU, countGTU, countMPX);
-    w->flush();
-    w->close();
     return 0;
 }

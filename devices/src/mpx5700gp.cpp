@@ -13,7 +13,7 @@ bool MPX5700GP::getVelocity(float& velocity) {
     adc_select_input(adcPin - 26);
     static const float convFactor = 3.3f / (1 << 12);
     uint16_t raw = adc_read();
-    if(abs((int)raw - (int)oldRaw) >= 2) {
+    if(abs((int)raw - (int)oldRaw) >= 5) {
         oldRaw = raw;
         float vOut = raw * convFactor;
         float p = (vOut/5.0-0.04)*777.7259294; //kpa
@@ -25,11 +25,6 @@ bool MPX5700GP::getVelocity(float& velocity) {
     }
     velocity = oldVel;
     return false;
-    //for fast inv sqrt:
-    //float pRecip = (4.7-0.2)/(700000*(vOut-0.2)) // try expanding out and see speed difference?
-    //pRecip = pRecip * (pRecip > 0)
-    //return fastInvSqrt(airDensity*0.5*pRecip)
-    //also maybe preload airDensity to be airDensity * 0.5
 }
 
 void MPX5700GP::setAirDensity(float density) {
@@ -39,10 +34,10 @@ void MPX5700GP::setAirDensity(float density) {
 bool MPX5700GP::getDrift(float &drift)
 {
     float temp = 0.0;
-    for(int i = 0; i < 100; i++) {
+    for(int i = 0; i < 10000; i++) {
         sleep_us(50);
         getVelocity(temp);
-        drift += temp*0.01;
+        drift += temp*0.0001;
     }
     return true;
 }
