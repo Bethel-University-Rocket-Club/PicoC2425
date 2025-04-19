@@ -23,6 +23,7 @@ class BMP280 {
     bool setSeaPressure(float seaPressure);
     bool softReset();
     bool setDefaults();
+    bool checkConnection();
 
     private:
     struct BMP280Calibration;
@@ -30,7 +31,6 @@ class BMP280 {
     struct OldRawData;
     struct CompensatedData;
     float seaPressure;
-    bool check_bmp280_connection();
     bool rawBurstRead(uint8_t startAddr, uint readAmount);
     bool compensateTemperature();
     bool compensatePressure();

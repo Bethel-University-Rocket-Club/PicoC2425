@@ -15,9 +15,9 @@ class CircularQueue {
     uint16_t size();
 
     private:
-    DataBuffer queue[256] = {};
-    std::atomic<uint8_t> head = 0;
-    std::atomic<uint8_t> tail = 0;
+    DataBuffer queue[2048] = {};
+    std::atomic<uint16_t> head = 0;
+    std::atomic<uint16_t> tail = 0;
     std::atomic<uint16_t> count = 0;
 
 };

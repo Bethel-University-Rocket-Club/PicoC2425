@@ -2,7 +2,10 @@
 #define CONFIG_H
 #define LED_PIN PICO_DEFAULT_LED_PIN // Pico's onboard LED pin
 
-#define THRESHOLD (2) //2m/s/s
+#define THRESHOLD (5*9.8) //2g's, 18m/s/s
+#define SEAPRESSURE 1013.25
+#define AIRDENSITY 1.3
+
 #define SDBUFSIZE 8192 //128 for data, *4 to get sdcard sector size, *16 for bulk writing - faster than any other power of 2 i've tried
 #define USTIMESIZE 12 //how many positions time in microseconds is given when written
 #define AGGSAMPLESIZE 10 //how many positions aggregate sample count is given when written
@@ -12,11 +15,6 @@
 #define GPSBUFCOUNT 2
 //Writer - DMA IRQ 0
 //GPS - DMA IRQ 1
-/*
-#define BMP280DMA 2
-#define MPU6050DMA 3
-#define MPX5700GPDMA 4
-*/
 //BMP280 I2C pin config
 #define BMP280CONFIG
 #define BMP280BUS 1 //i2c1
@@ -47,7 +45,9 @@
 #define MPX5700GPANALOG 26 //gp
 
 #define MPU6050NOAX
-#define MPU6050NOAY
+//#define MPU6050NOAY
+#define MPU6050NOAZ
+#define MPU6050INVAY
 //#define MPU6050INVAZ
 #define MPU6050NOGX
 #define MPU6050NOGY

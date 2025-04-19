@@ -5,14 +5,11 @@ Writer::Writer(sd_card_t* sdCard) {
     FRESULT fr = FR_OK;
     for(int i = 0; i < 5; i++) {
         fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
-        if (FR_OK != fr) {
-            blink(5, 100);
-        } else break;
+        if (FR_OK == fr) {
+            break;
+        }
     }
     fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
-    if (FR_OK != fr && FR_EXIST != fr) {
-        blink(10, 100);
-    }
 }
 
 bool Writer::writeHeader() {
@@ -64,6 +61,23 @@ bool Writer::flush() {
         latestUnwrittenIndex = 0;
         return fr == FR_OK;
     }
+}
+
+bool Writer::checkConnection()
+{
+    /*
+    // Attempt to get the SD card type. This sends a command.
+    sd_card_type_t card_type = sd_get_card_type();
+    if (card_type == SD_CARD_TYPE_UNKNOWN) {
+        return false;
+    }
+    
+    // Attempt to get the number of sectors. This reads card information.
+    uint32_t num_sectors = sd_get_num_sectors();
+    if (num_sectors == 0) {
+        return false;
+    }*/
+    return true;
 }
 
 bool Writer::writeData(const char *data, int length) {

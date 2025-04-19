@@ -44,6 +44,38 @@ bool validateSensors() {
     mpu = d->GetAccelerometer();
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
+    while(!bmp->checkConnection()) {
+        blink(1, 1000);
+        blink(10, 250);
+    }
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    while(!mpu->checkConnection()) {
+        blink(2, 1000);
+        blink(10, 250);
+    }
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    while(!gtu->checkConnection()) {
+        blink(3, 1000);
+        blink(10, 250);
+    }
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    /*
+    while(!mpx->checkConnection()) {
+        blink(4, 1000);
+        blink(10, 250);
+    }
+        */
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    while(!w->checkConnection()) {
+        blink(5, 1000);
+        blink(10, 250);
+    }
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
     return true;
 }
 
@@ -51,96 +83,101 @@ bool setup() {
     // Configure the onboard LED GPIO as an output.
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
-    if(!validateSensors()) {
-        blink(1000, 100);
-    }
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    validateSensors();
     blink(3, 500); //remove eventually
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
     w->writeHeader();
-    w->flush();
-    bmp->setSeaPressure(1013.25);
-    mpx->setAirDensity(1.225);
+    bmp->setSeaPressure(SEAPRESSURE);
+    mpx->setAirDensity(AIRDENSITY);
     float measure = 0.0;
     BMPID = c->addSensor(&Calculator::bmp280Calculations);
     MPUID = c->addSensor(&Calculator::mpu6050Calculations);
-    MPXID = c->addSensor(&Calculator::mpx5700gpCalculations);
     GTUID = c->addSensor(&Calculator::gtu7Calculations);
+    MPXID = c->addSensor(&Calculator::mpx5700gpCalculations);
     bmp->getAltitude(measure);
     c->configureInitialOffset(BMPID, measure);
     gtu->getAltitude(measure);
     c->configureInitialOffset(GTUID, measure);
     mpx->getDrift(measure);
     c->configureInitialOffset(MPXID, measure);
-    printf("setup\n");
     return true;
 }
 
 bool startCondition() {
     float accelUp = 0.0;
     while(true) {
-        mpu->getAccelZ(accelUp);
-        if(accelUp > THRESHOLD) {
+        mpu->getAccelY(accelUp);
+        if(accelUp*9.8 > THRESHOLD) {
             STARTTIMEMICRO = time_us_64();
             c->setStartTime(STARTTIMEMICRO * 0.000001);
-            printf("Starting\n");
             return true;
         }
     }
     return false;
 }
 
-bool endCondition(float& altitude) {
+void setOffsets() {
+    float measure = 0.0;
+    bmp->getAltitude(measure);
+    c->configureInitialOffset(BMPID, measure);
+    gtu->getAltitude(measure);
+    c->configureInitialOffset(GTUID, measure);
+    mpx->getDrift(measure);
+    c->configureInitialOffset(MPXID, measure);
+}
+
+bool endCondition(float altitude) {
     static float apogee = 0.0;
     static uint32_t apogeeTime = STARTTIMEMICRO;
-    if(time_us_64() - STARTTIMEMICRO > 1000000) {
+    /*//1 second test
+    if(time_us_64() - STARTTIMEMICRO > 5000000) {
         printf("end\n");
         return true;
     }
-    if(altitude < apogee) {
+        */
+    if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
         if(time_us_64() - apogeeTime > 1000000) {
             return true;
         }
-        return false;
-    } else {
+    } else if(altitude >= apogee) {
         apogeeTime = time_us_64() - STARTTIMEMICRO;
         apogee = altitude;
-        return false;
     }
+    return false;
+}
+
+void closeDown() {
+    DataBuffer* curRead = nullptr;
+    while(queue->size() > 0) {
+        curRead = queue->dequeue();
+        c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
+        w->writeData(curRead);
+        queue->finishDequeue();
+    }
+    w->flush();
+    w->close();
 }
 
 void calcWriteLoop() {
-    printf("startCore1");
     DataBuffer* curRead = nullptr;
     float altitude = 0.0;
     while(!endCondition(altitude)) {
         if(queue->size() > 0) {
-            printf("QSize:%d\n", queue->size());
             curRead = queue->dequeue();
             c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
             w->writeData(curRead);
-            if(curRead->sensorNum == 0) {
-                //altitude = curRead->sensorSample;
+            if(curRead->sensorNum == 0) { //based on bmp altitude
+                altitude = curRead->data.values[0];
             }
             queue->finishDequeue();
         }
     }
     END = true;
-    while(queue->size() > 0) {
-        curRead = queue->dequeue();
-        c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
-        w->writeData(curRead);
-        if(curRead->sensorNum == 0) {
-            altitude = curRead->sensorSample;
-        }
-        queue->finishDequeue();
-    }
-    w->flush();
-    w->close();
-    DONEWRITE = true;
 }
 
 void samplingLoop() {
-    printf("startCore0\n");
     DataBuffer* curWrite = nullptr;
     uint64_t elapsedTime = time_us_64() - STARTTIMEMICRO;
     uint32_t aggSampleCount = 0;
@@ -166,7 +203,8 @@ void samplingLoop() {
             queue->finishEnqueue();
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
-        if(mpu->getAccelZ(measure) && !queue->isFull()) {
+        if(mpu->getAccelY(measure) && !queue->isFull()) {
+            measure *= 9.8;
             aggSampleCount++;
             countMPU++;
             curWrite = queue->startEnqueue();
@@ -213,56 +251,17 @@ void samplingLoop() {
     }
 }
 
-void writeToUART0(const char* sentence, uint32_t length) {
-    for(uint32_t i = 0; i < length; i++) {
-        uart_putc(uart0, sentence[i]);
-    }
-}
-
 int main() {
     stdio_init_all();
     sleep_ms(100);
     setup();
+    blink(20, 100);
     while(!startCondition()) {
         tight_loop_contents();
     }
     multicore_launch_core1(calcWriteLoop);
     samplingLoop();
-    while(!DONEWRITE) {
-        tight_loop_contents();
-    }
-    printf("done\n");
-    /*
-    success = gtu->getAltitude(gtuAlt);
-    printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
-
-    const char* sentence1 = "$GPGGA,134658.00,5106.9792,N,11402.3003,W,2,09,1.0,1048.47,M,-16.27,M,08,AAAA*60\r\n";
-    writeToUART0(sentence1, 82);
-    sleep_ms(50);
-    success = gtu->getAltitude(gtuAlt);
-    printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
-
-    //get alt, check success
-    const char* sentence2 = "$GPGGA,134658.00,5106.9792,N,11402.3003,W,2,09,1.0,1048,M,-16.27,M,08,AAAA*60\r\n";
-    writeToUART0(sentence2, 79);
-    sleep_ms(50);
-    success = gtu->getAltitude(gtuAlt);
-    printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
-
-    //get alt, check success
-    const char* sentence3 = "$GPGGA,134658.00,5106.9792,N,11402.3003,W,2,09,1.0,1048,M,-16.27,M,08,AAAA*60\r\n";
-    writeToUART0(sentence3, 79);
-    sleep_ms(50);
-    success = gtu->getAltitude(gtuAlt);
-    printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
-
-    //get alt, check success
-    const char* sentence4 = "$GPGGA,134658.00,5106.9792,N,11402.3003,W,2,09,1.0,1048.47,M,-16.27,M,08,AAAA*60\r\n";
-    writeToUART0(sentence4, 82);
-    sleep_ms(50);
-    success = gtu->getAltitude(gtuAlt);
-    printf("initAlt:%f, new:%d\n", gtuAlt, (int)success);
-    //get alt, check success
-    */
+    closeDown();
+    gpio_put(PICO_DEFAULT_LED_PIN, 0);
     return 0;
 }

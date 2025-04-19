@@ -28,6 +28,7 @@ class Writer {
     bool close();
     bool writeData(DataBuffer* data);
     bool flush();
+    bool checkConnection();
 
     private:
     bool writeData(const char* data, int length);

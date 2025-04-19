@@ -12,7 +12,8 @@ DataBuffer *CircularQueue::startEnqueue() {
 }
 
 void CircularQueue::finishEnqueue() {
-    uint8_t nextTail = tail.load(std::memory_order_relaxed) + 1;
+    uint16_t nextTail = tail.load(std::memory_order_relaxed) + 1;
+    if((nextTail >> 11) > 0) nextTail = 0;
     tail.store(nextTail, std::memory_order_release);
     count.fetch_add(1, std::memory_order_acq_rel);
     return;
@@ -27,6 +28,7 @@ DataBuffer *CircularQueue::dequeue() {
 
 void CircularQueue::finishDequeue() {
     uint8_t nextHead = head.load(std::memory_order_relaxed) + 1;
+    if((nextHead >> 11) > 0) nextHead = 0;
     head.store(nextHead, std::memory_order_release);
     count.fetch_sub(1, std::memory_order_acq_rel);
     return;

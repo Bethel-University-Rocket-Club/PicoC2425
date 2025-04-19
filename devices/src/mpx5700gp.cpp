@@ -18,7 +18,9 @@ bool MPX5700GP::getVelocity(float& velocity) {
         float vOut = raw * convFactor;
         float p = (vOut/5.0-0.04)*777.7259294; //kpa
         p *= 1000; //pa
-        p = p * (p > 0);
+        if(p < 0) {
+            p *= -1;
+        }
         velocity = std::sqrt(2*p*airDensityRecip);
         oldVel = velocity;
         return true;
@@ -34,10 +36,19 @@ void MPX5700GP::setAirDensity(float density) {
 bool MPX5700GP::getDrift(float &drift)
 {
     float temp = 0.0;
-    for(int i = 0; i < 10000; i++) {
+    double tDrift = 0.0;
+    for(int i = 0; i < 100000; i++) {
         sleep_us(50);
         getVelocity(temp);
-        drift += temp*0.0001;
+        tDrift += temp*0.00001;
     }
+    drift = (float)tDrift;
     return true;
+}
+
+bool MPX5700GP::checkConnection()
+{
+    adc_select_input(adcPin - 26);
+    uint16_t raw = adc_read();
+    return abs(raw - 250) < 10;
 }

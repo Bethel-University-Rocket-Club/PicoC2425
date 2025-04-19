@@ -3,24 +3,18 @@
 BMP280::BMP280(uint16_t address, i2c_inst_t *i2c) {
     this->address = address;
     this->i2c = i2c;
-    /*while(!check_bmp280_connection()) {
-        tight_loop_contents;
-    }*/
     calibrate();
     setDefaults();
 }
 
-bool BMP280::check_bmp280_connection() {
+bool BMP280::checkConnection() {
     // Attempt to write 0 bytes to the BMP280 (probe address)
     uint8_t dummy = 0;
     int ret = i2c_write_blocking(i2c, address, &dummy, 1, false);
     sleep_ms(100);
-    printf("written:%d\n", ret);
     if (ret >= 0) {
-        printf("BMP280 detected at 0x%02X\n", address);
         return true;
     } else {
-        printf("No response at 0x%02X, error: %d\n", address, ret);
         return false;
     }
 }

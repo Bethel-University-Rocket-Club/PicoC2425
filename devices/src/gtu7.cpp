@@ -37,6 +37,12 @@ bool GTU7::getAltitude(float& getAltitude) {
     return isNew;
 }
 
+bool GTU7::checkConnection()
+{
+    float temp = 0.0;
+    return getAltitude(temp);
+}
+
 void GTU7::DMAGPSHandler() {
     dma_hw->ints0 = 1u << dmaChanNum;
     if(buffer[curBuf][length] == '\n') {

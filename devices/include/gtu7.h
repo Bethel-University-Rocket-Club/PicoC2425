@@ -11,6 +11,7 @@ class GTU7 {
     public:
     GTU7(uart_inst_t* uart);
     bool getAltitude(float& getAltitude);
+    bool checkConnection();
 
     private:
     bool getSentence();

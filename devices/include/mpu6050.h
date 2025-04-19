@@ -3,37 +3,37 @@
 #include "mpu6050Settings.h"
 #include "common.h"
 
-#ifdef MPU6050_NO_AX
+#ifdef MPU6050NOAX
 #define MPU6050_AX 1
 #else
 #define MPU6050_AX 0
 #endif
 
-#ifdef MPU6050_NO_AY
+#ifdef MPU6050NOAY
 #define MPU6050_AY 1
 #else
 #define MPU6050_AY 0
 #endif
 
-#ifdef MPU6050_NO_AZ
+#ifdef MPU6050NOAZ
 #define MPU6050_AZ 1
 #else
 #define MPU6050_AZ 0
 #endif
 
-#ifdef MPU6050_NO_GX
+#ifdef MPU6050NOGX
 #define MPU6050_GX 1
 #else
 #define MPU6050_GX 0
 #endif
 
-#ifdef MPU6050_NO_GY
+#ifdef MPU6050NOGY
 #define MPU6050_GY 1
 #else
 #define MPU6050_GY 0
 #endif
 
-#ifdef MPU6050_NO_GZ
+#ifdef MPU6050NOGZ
 #define MPU6050_GZ 1
 #else
 #define MPU6050_GZ 0
@@ -279,6 +279,8 @@ class MPU6050 {
     bool disableInterrupts();
     bool resetSensors(bool gyro, bool accel);
     bool disableFIFO();
+    bool checkConnection();
+
     private:
     struct OldRawData;
     struct OldCompensatedData;

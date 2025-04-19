@@ -139,3 +139,15 @@ bool MPU6050::disableFIFO() {
     writeI2C(i2c, address, MPU6050_REGISTER_USER_CONTROL, 1, &toWrite);
     return true;
 }
+
+bool MPU6050::checkConnection() {
+    // Attempt to write 0 bytes to the BMP280 (probe address)
+    uint8_t dummy = 0;
+    int ret = i2c_write_blocking(i2c, address, &dummy, 1, false);
+    sleep_ms(100);
+    if (ret >= 0) {
+        return true;
+    } else {
+        return false;
+    }
+}

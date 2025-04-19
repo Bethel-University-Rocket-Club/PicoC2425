@@ -10,6 +10,7 @@ class MPX5700GP {
     bool getVelocity(float& velocity);
     void setAirDensity(float density);
     bool getDrift(float& drift);
+    bool checkConnection();
 
     private:
     uint16_t oldRaw;
