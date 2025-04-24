@@ -108,8 +108,8 @@ bool startCondition() {
     float accelUp = 0.0;
     while(true) {
         mpu->getAccelY(accelUp);
-        //if(accelUp*9.8 > THRESHOLD) {
-        if(accelUp*9.8 > 2) {
+        if(accelUp*9.8 > THRESHOLD) {
+        //if(accelUp*9.8 > 2) {
             STARTTIMEMICRO = time_us_64();
             c->setStartTime(STARTTIMEMICRO * 0.000001);
             return true;
@@ -132,10 +132,12 @@ bool endCondition(float altitude) {
     static float apogee = 0.0;
     static uint32_t apogeeTime = STARTTIMEMICRO;
     //1 second test
+    /*
     if(time_us_64() - STARTTIMEMICRO > 1000000) {
         printf("end\n");
         return true;
     }
+        */
     if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
         if(time_us_64() - apogeeTime > 1000000) {
