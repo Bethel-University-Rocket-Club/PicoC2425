@@ -19,7 +19,6 @@ class CircularQueue {
     std::atomic<uint16_t> head = 0;
     std::atomic<uint16_t> tail = 0;
     std::atomic<uint16_t> count = 0;
-
 };
 
 #endif

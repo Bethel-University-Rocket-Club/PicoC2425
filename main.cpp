@@ -108,7 +108,8 @@ bool startCondition() {
     float accelUp = 0.0;
     while(true) {
         mpu->getAccelY(accelUp);
-        if(accelUp*9.8 > THRESHOLD) {
+        //if(accelUp*9.8 > THRESHOLD) {
+        if(accelUp*9.8 > 2) {
             STARTTIMEMICRO = time_us_64();
             c->setStartTime(STARTTIMEMICRO * 0.000001);
             return true;
@@ -130,12 +131,11 @@ void setOffsets() {
 bool endCondition(float altitude) {
     static float apogee = 0.0;
     static uint32_t apogeeTime = STARTTIMEMICRO;
-    /*//1 second test
-    if(time_us_64() - STARTTIMEMICRO > 5000000) {
+    //1 second test
+    if(time_us_64() - STARTTIMEMICRO > 1000000) {
         printf("end\n");
         return true;
     }
-        */
     if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
         if(time_us_64() - apogeeTime > 1000000) {
@@ -189,64 +189,72 @@ void samplingLoop() {
     while(!END) {
         elapsedTime = time_us_64() - STARTTIMEMICRO;
         if(bmp->getAltitude(measure) && !queue->isFull()) {
-            aggSampleCount++;
-            countBMP++;
             curWrite = queue->startEnqueue();
-            curWrite->aggSampleNum = aggSampleCount;
-            curWrite->sensorSampleNum = countBMP;
-            curWrite->elapsedTime = elapsedTime;
-            curWrite->sensorSample = measure;
-            curWrite->sensorMax = 3;
-            curWrite->sensorNum = 0;
-            curWrite->sigDecimalDigits = 2;
-            curWrite->data.values[0] = measure;
-            queue->finishEnqueue();
+            if(curWrite != nullptr) {
+                aggSampleCount++;
+                countBMP++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countBMP;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 0;
+                curWrite->sigDecimalDigits = 2;
+                curWrite->data.values[0] = measure;
+                queue->finishEnqueue();
+            }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
         if(mpu->getAccelY(measure) && !queue->isFull()) {
-            measure *= 9.8;
-            aggSampleCount++;
-            countMPU++;
             curWrite = queue->startEnqueue();
-            curWrite->aggSampleNum = aggSampleCount;
-            curWrite->sensorSampleNum = countMPU;
-            curWrite->elapsedTime = elapsedTime;
-            curWrite->sensorSample = measure;
-            curWrite->sensorMax = 3;
-            curWrite->sensorNum = 1;
-            curWrite->sigDecimalDigits = 3;
-            curWrite->data.values[2] = measure;
-            queue->finishEnqueue();
+            if(curWrite != nullptr) {
+                measure *= 9.8;
+                aggSampleCount++;
+                countMPU++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countMPU;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 1;
+                curWrite->sigDecimalDigits = 3;
+                curWrite->data.values[2] = measure;
+                queue->finishEnqueue();
+            }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
         if(gtu->getAltitude(measure) && !queue->isFull()) {
-            aggSampleCount++;
-            countGTU++;
             curWrite = queue->startEnqueue();
-            curWrite->aggSampleNum = aggSampleCount;
-            curWrite->sensorSampleNum = countGTU;
-            curWrite->elapsedTime = elapsedTime;
-            curWrite->sensorSample = measure;
-            curWrite->sensorMax = 3;
-            curWrite->sensorNum = 2;
-            curWrite->sigDecimalDigits = 2;
-            curWrite->data.values[0] = measure;
-            queue->finishEnqueue();
+            if(curWrite != nullptr) {
+                aggSampleCount++;
+                countGTU++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countGTU;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 2;
+                curWrite->sigDecimalDigits = 2;
+                curWrite->data.values[0] = measure;
+                queue->finishEnqueue();
+            }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
         if(mpx->getVelocity(measure) && !queue->isFull()) {
-            aggSampleCount++;
-            countMPX++;
             curWrite = queue->startEnqueue();
-            curWrite->aggSampleNum = aggSampleCount;
-            curWrite->sensorSampleNum = countMPX;
-            curWrite->elapsedTime = elapsedTime;
-            curWrite->sensorSample = measure;
-            curWrite->sensorMax = 3;
-            curWrite->sensorNum = 3;
-            curWrite->sigDecimalDigits = 2;
-            curWrite->data.values[1] = measure;
-            queue->finishEnqueue();
+            if(curWrite != nullptr) {
+                aggSampleCount++;
+                countMPX++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countMPX;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 3;
+                curWrite->sigDecimalDigits = 2;
+                curWrite->data.values[1] = measure;
+                queue->finishEnqueue();
+            }
         }
     }
 }
@@ -256,6 +264,8 @@ int main() {
     sleep_ms(100);
     setup();
     blink(20, 100);
+    sleep_ms(10);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!startCondition()) {
         tight_loop_contents();
     }

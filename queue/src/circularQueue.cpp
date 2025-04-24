@@ -27,7 +27,7 @@ DataBuffer *CircularQueue::dequeue() {
 }
 
 void CircularQueue::finishDequeue() {
-    uint8_t nextHead = head.load(std::memory_order_relaxed) + 1;
+    uint16_t nextHead = head.load(std::memory_order_relaxed) + 1;
     if((nextHead >> 11) > 0) nextHead = 0;
     head.store(nextHead, std::memory_order_release);
     count.fetch_sub(1, std::memory_order_acq_rel);
@@ -39,7 +39,7 @@ bool CircularQueue::isEmpty() {
 }
 
 bool CircularQueue::isFull() {
-    return count.load(std::memory_order_acquire) == 256;
+    return count.load(std::memory_order_acquire) == 2048;
 }
 
 uint16_t CircularQueue::size() {
