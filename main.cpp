@@ -133,11 +133,10 @@ bool endCondition(float altitude) {
     static uint32_t apogeeTime = STARTTIMEMICRO;
     //1 second test
     /*
-    if(time_us_64() - STARTTIMEMICRO > 1000000) {
+    if(time_us_64() - STARTTIMEMICRO > 10000000) {
         printf("end\n");
         return true;
-    }
-        */
+    }*/
     if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
         if(time_us_64() - apogeeTime > 1000000) {

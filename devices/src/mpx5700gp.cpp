@@ -1,5 +1,6 @@
 #include "mpx5700gp.h"
 #include <stdio.h>
+#include "windowAverage.h"
 
 MPX5700GP::MPX5700GP(byte adcPin) {
     this->adcPin = adcPin;
@@ -10,23 +11,22 @@ MPX5700GP::MPX5700GP(byte adcPin) {
 }
 
 bool MPX5700GP::getVelocity(float& velocity) {
+    static WindowAverage movingAverage = WindowAverage(25, 0.2);
     adc_select_input(adcPin - 26);
     static const float convFactor = 3.3f / (1 << 12);
     uint16_t raw = adc_read();
-    if(abs((int)raw - (int)oldRaw) >= 5) {
-        oldRaw = raw;
-        float vOut = raw * convFactor;
-        float p = (vOut/5.0-0.04)*777.7259294; //kpa
-        p *= 1000; //pa
-        if(p < 0) {
-            p *= -1;
-        }
-        velocity = std::sqrt(2*p*airDensityRecip);
-        oldVel = velocity;
-        return true;
+    float vOut = movingAverage.update(raw * convFactor);
+    float p = (vOut/5.0-0.04)*777.7259294; //kpa
+    //printf("voltage: %f\n", vOut);
+    //printf("kpa: %f\n", p);
+    p *= 1000; //pa
+    if(p < 0) {
+        p *= -1;
     }
-    velocity = oldVel;
-    return false;
+    //printf("pa: %f\n", p);
+    velocity = std::sqrt(2*p*airDensityRecip);
+    //printf("vel: %f\n", velocity);
+    return true;
 }
 
 void MPX5700GP::setAirDensity(float density) {
