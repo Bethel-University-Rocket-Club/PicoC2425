@@ -1,13 +1,15 @@
 #ifndef CALCINFO_H
 #define CALCINFO_H
 #include "IIRFilter.h"
+#include "windowAverage.h"
 struct CalcInfo {
     void* sensorSpecificData;
     double timeInfo;
     enum {BMP280CalcInfo, MPU6050CalcInfo, GTU7CalcInfo, MPX5700GPCalcInfo} type;
 };
 struct BMP280CalcInfo{
-    IIRFilter* recentAltitudeValues;
+    //IIRFilter* recentAltitudeValues;
+    WindowAverage* recentAltitudeValues;
     float pastVelocity;
     float offsetInfo;
 };
@@ -21,6 +23,7 @@ struct GTU7CalcInfo{
     float offsetInfo;
 };
 struct MPX5700GPCalcInfo{
+    //float recentVelocity;
     IIRFilter* recentVelocityValues;
     float runningAltitude;
     float offsetInfo;

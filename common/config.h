@@ -1,8 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 #define LED_PIN PICO_DEFAULT_LED_PIN // Pico's onboard LED pin
+#define BUZZ_PIN 28
 
-#define THRESHOLD (5*9.8) //2g's, 18m/s/s
+#define THRESHOLD (3*9.8) //5g's
 #define SEAPRESSURE 1013.25
 #define AIRDENSITY 1.3
 
@@ -47,7 +48,7 @@
 #define MPU6050NOAX
 //#define MPU6050NOAY
 #define MPU6050NOAZ
-#define MPU6050INVAY
+//#define MPU6050INVAY
 //#define MPU6050INVAZ
 #define MPU6050NOGX
 #define MPU6050NOGY

@@ -11,11 +11,13 @@ class MPX5700GP {
     void setAirDensity(float density);
     bool getDrift(float& drift);
     bool checkConnection();
+    bool getZeroVoltage(float& zeroV);
 
     private:
     uint16_t oldRaw;
     float oldVel;
     byte adcPin;
     float airDensityRecip;
+    float zeroVal;
 };
 #endif

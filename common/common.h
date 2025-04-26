@@ -5,6 +5,7 @@
 #include "pico/platform.h"
 #include "hardware/i2c.h"
 #include <cmath>
+#include "config.h"
 
 typedef unsigned char byte;
 struct FloatArray3 {
@@ -36,11 +37,17 @@ int16_t inline BEbytesToShort(byte* data) {
 void inline blink(int amt, int msDuration) {
     //blink the on board led amt times, with msDuration
     for(int i = 0; i < amt; i++) {
-        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        gpio_put(LED_PIN, 1);
         sleep_ms(msDuration);
-        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        gpio_put(LED_PIN, 0);
         sleep_ms(msDuration);
     }
+}
+
+void inline buzz(int msDuration) {
+    gpio_put(BUZZ_PIN, 1);
+    sleep_ms(msDuration);
+    gpio_put(BUZZ_PIN, 0);
 }
 
 bool inline writeI2C(i2c_inst_t* i2c, uint8_t addr, uint8_t reg, uint8_t byteCount, uint8_t* data) {

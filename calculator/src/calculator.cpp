@@ -1,5 +1,4 @@
 #include "calculator.h"
-#include <stdexcept>
 
 int Calculator::addSensor(FloatArray3FunctionPtr calcFunction) {
     int identifier = getNextIdentifier();
@@ -40,10 +39,11 @@ bool Calculator::bmp280Calculations(CalcInfo& info, float newAltitude, double ne
     BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(info.sensorSpecificData);
     double elapsedTime = newTime - info.timeInfo;
     newAltitude -= bmp280InfoPtr->offsetInfo;
-    float initAvg = 0.0;
-    bmp280InfoPtr->recentAltitudeValues->getValue(initAvg);
+    float initAvg = bmp280InfoPtr->recentAltitudeValues->getAverage();
+    out.values[0] = bmp280InfoPtr->recentAltitudeValues->update(newAltitude);
+    ///bmp280InfoPtr->recentAltitudeValues->getValue(initAvg);
     //updated value gets put in out->values[0]
-    bmp280InfoPtr->recentAltitudeValues->update(newAltitude, out.values[0]);
+    //bmp280InfoPtr->recentAltitudeValues->update(newAltitude, out.values[0]);
     out.values[1] = calculateDerivative(initAvg, out.values[0], elapsedTime);
     out.values[2] = calculateDerivative(bmp280InfoPtr->pastVelocity, out.values[1], elapsedTime);
     bmp280InfoPtr->pastVelocity = out.values[1];
@@ -82,7 +82,8 @@ bool Calculator::mpx5700gpCalculations(CalcInfo& info, float newVelocity, double
     MPX5700GPCalcInfo* mpx5700gpInfoPtr = static_cast<MPX5700GPCalcInfo*>(info.sensorSpecificData);
     double elapsedTime = newTime - info.timeInfo;
     newVelocity -= mpx5700gpInfoPtr->offsetInfo;
-    float oldVel = 0.0;
+    float oldVel = 0.0;//mpx5700gpInfoPtr->recentVelocity;
+    //out.values[1] = newVelocity;
     mpx5700gpInfoPtr->recentVelocityValues->getValue(oldVel);
     mpx5700gpInfoPtr->recentVelocityValues->update(newVelocity, out.values[1]);
     out.values[2] = calculateDerivative(oldVel, out.values[1], elapsedTime);
@@ -103,7 +104,8 @@ bool Calculator::setStartTime(double newTimeSeconds) {
 bool Calculator::getAppropriateInfo(int index, FloatArray3FunctionPtr calcFunction) {
     CalcInfo& info = sensorInfo[index];
     if(calcFunction == &Calculator::bmp280Calculations) {
-        BMP280CalcInfo* bmp280Info = new BMP280CalcInfo{new IIRFilter(0.05), 0, 0};
+        //BMP280CalcInfo* bmp280Info = new BMP280CalcInfo{new IIRFilter(0.2), 0, 0}; //play around to try to get smoother changes
+        BMP280CalcInfo* bmp280Info = new BMP280CalcInfo{new WindowAverage(20, 0), 0, 0};
         info.sensorSpecificData = bmp280Info;
         info.type = CalcInfo::BMP280CalcInfo;
     } else if(calcFunction == &Calculator::mpu6050Calculations) {
@@ -115,7 +117,8 @@ bool Calculator::getAppropriateInfo(int index, FloatArray3FunctionPtr calcFuncti
         info.sensorSpecificData = gtu7Info;
         info.type = CalcInfo::GTU7CalcInfo;
     } else if(calcFunction == &Calculator::mpx5700gpCalculations) {
-        MPX5700GPCalcInfo* mpx5700gpInfo = new MPX5700GPCalcInfo{new IIRFilter(0.05), 0};
+        MPX5700GPCalcInfo* mpx5700gpInfo = new MPX5700GPCalcInfo{new IIRFilter(0.1), 0}; //also has WindowAverage on initial measurement
+        //MPX5700GPCalcInfo* mpx5700gpInfo = new MPX5700GPCalcInfo{0, 0, 0};
         info.sensorSpecificData = mpx5700gpInfo;
         info.type = CalcInfo::MPX5700GPCalcInfo;
     }

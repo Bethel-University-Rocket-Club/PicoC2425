@@ -45,18 +45,21 @@ bool validateSensors() {
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
     while(!bmp->checkConnection()) {
+        buzz(1000);
         blink(1, 1000);
         blink(10, 250);
     }
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!mpu->checkConnection()) {
+        buzz(2000);
         blink(2, 1000);
         blink(10, 250);
     }
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!gtu->checkConnection()) {
+        buzz(3000);
         blink(3, 1000);
         blink(10, 250);
     }
@@ -64,6 +67,7 @@ bool validateSensors() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     /*
     while(!mpx->checkConnection()) {
+        buzz(4000);
         blink(4, 1000);
         blink(10, 250);
     }
@@ -71,6 +75,7 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!w->checkConnection()) {
+        buzz(5000);
         blink(5, 1000);
         blink(10, 250);
     }
@@ -82,10 +87,13 @@ bool validateSensors() {
 bool setup() {
     // Configure the onboard LED GPIO as an output.
     gpio_init(LED_PIN);
+    gpio_init(BUZZ_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_set_dir(BUZZ_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    buzz(50);
     validateSensors();
-    blink(3, 500); //remove eventually
+    //blink(3, 500); //remove eventually
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     w->writeHeader();
     bmp->setSeaPressure(SEAPRESSURE);
@@ -133,10 +141,11 @@ bool endCondition(float altitude) {
     static uint32_t apogeeTime = STARTTIMEMICRO;
     //1 second test
     /*
-    if(time_us_64() - STARTTIMEMICRO > 10000000) {
+    if(time_us_64() - STARTTIMEMICRO > 1000000) {
         printf("end\n");
         return true;
     }*/
+    //printf("alt: %f, apg: %f\n", altitude, apogee);
     if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
         if(time_us_64() - apogeeTime > 1000000) {
@@ -270,6 +279,7 @@ int main() {
     while(!startCondition()) {
         tight_loop_contents();
     }
+    setOffsets();
     multicore_launch_core1(calcWriteLoop);
     samplingLoop();
     closeDown();

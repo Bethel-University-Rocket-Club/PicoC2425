@@ -6,10 +6,12 @@ Writer::Writer(sd_card_t* sdCard) {
     for(int i = 0; i < 5; i++) {
         fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
         if (FR_OK == fr) {
+            mounted = true;
             break;
         }
     }
     fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
+    if(fr == FR_OK) fileOpen = true;
 }
 
 bool Writer::writeHeader() {
@@ -41,7 +43,7 @@ bool Writer::close() {
 }
 
 bool Writer::writeData(DataBuffer *data) {
-    if(latestUnwrittenIndex + 200 > SDBUFSIZE) {
+    if(latestUnwrittenIndex > SDBUFSIZE / 2 - 200) {
         flush();
     }
     uint8_t len = 0;
@@ -51,6 +53,33 @@ bool Writer::writeData(DataBuffer *data) {
 }
 
 bool Writer::flush() {
+    if(!checkConnection()) {
+        fileOpen = false;
+        mounted = false;
+        return false;
+    } else {
+        FRESULT fr = FR_OK;
+        if(!mounted) {
+            fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
+            if(fr != FR_OK) {
+                f_unmount(sdCard->pcName);
+                mounted = false;
+                return false;
+            }
+            mounted = true;
+        }
+        if(!fileOpen) {
+            fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
+            if(fr != FR_OK) {
+                f_close(&fileOut);
+                fileOpen = false;
+                f_unmount(sdCard->pcName);
+                mounted = false;
+                return false;
+            }
+            fileOpen = true;
+        }
+    }
     uint bw = 0;
     FRESULT fr = FR_OK;
     fr = f_write(&fileOut, writeBuf, latestUnwrittenIndex, &bw);
@@ -65,23 +94,11 @@ bool Writer::flush() {
 
 bool Writer::checkConnection()
 {
-    /*
-    // Attempt to get the SD card type. This sends a command.
-    sd_card_type_t card_type = sd_get_card_type();
-    if (card_type == SD_CARD_TYPE_UNKNOWN) {
-        return false;
-    }
-    
-    // Attempt to get the number of sectors. This reads card information.
-    uint32_t num_sectors = sd_get_num_sectors();
-    if (num_sectors == 0) {
-        return false;
-    }*/
-    return true;
+    return sdCard->sd_test_com(sdCard);
 }
 
 bool Writer::writeData(const char *data, int length) {
-    if(latestUnwrittenIndex + length > SDBUFSIZE - 200) {
+    if(latestUnwrittenIndex + length > SDBUFSIZE / 2 - 200) {
         flush();
     }
     for(int i = 0; i < length; i++) {

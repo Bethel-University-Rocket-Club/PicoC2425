@@ -51,6 +51,8 @@ class Writer {
     uint8_t countDigits10(uint32_t num);
     sd_card_t* sdCard;
     FIL fileOut;
+    bool mounted;
+    bool fileOpen;
     /*128 (12 positions for time in microseconds, 10 positions for aggregate sample count, 10 positions for individual sample count
     //8 positions per number, for 12 fields)
     //since its writing as a csv, these estimates for length of numbers (12 for time, 8 for float) are not going to be
@@ -59,7 +61,7 @@ class Writer {
     //*16 to minimize constant switching between not writing and writing
     //8196 bytes (8kB) buffer size
     */
-    char writeBuf[SDBUFSIZE];
+    char writeBuf[SDBUFSIZE*2];
     uint16_t latestUnwrittenIndex = 0;
 };
 #endif
