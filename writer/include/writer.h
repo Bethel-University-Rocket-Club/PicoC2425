@@ -26,6 +26,9 @@ class Writer {
     Writer(sd_card_t* sdCard);
     bool writeHeader();
     bool close();
+    bool open(const char* name);
+    bool unmount();
+    bool mount();
     bool writeData(DataBuffer* data);
     bool flush();
     bool checkConnection();
@@ -63,5 +66,6 @@ class Writer {
     */
     char writeBuf[SDBUFSIZE*2];
     uint16_t latestUnwrittenIndex = 0;
+    const char* curName;
 };
 #endif

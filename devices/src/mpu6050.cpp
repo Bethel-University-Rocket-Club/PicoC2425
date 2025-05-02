@@ -10,21 +10,33 @@ MPU6050::MPU6050(uint16_t address, i2c_inst_t *i2c) {
 
 bool MPU6050::setDefaults() {
     wake();
+    sleep_ms(1000);
     setSampleRate(0);
+    sleep_ms(100);
+    resetSensors(false, true);
+    sleep_ms(1000);
     setPowerDefaults1(true, 0);
+    sleep_ms(100);
     setPowerDefaults2(MPU6050_SENSORS_DISABLED);
-    setAccelRange(aRange);
+    sleep_ms(100);
     setGyroRange(gRange);
+    sleep_ms(100);
     disableFIFO();
+    sleep_ms(100);
     disableInterrupts();
-    setConfig(0, 7);
-    setMotDetect(0);
+    sleep_ms(100);
+    //setConfig(0, 7);
+    sleep_ms(100);
+    //setMotDetect(0);
+    sleep_ms(100);
+    setAccelRange(aRange);
+    sleep_ms(100);
     return true;
 }
 
 bool MPU6050::setSampleRate(byte recipValue) {
-    byte* write = &recipValue;
-    writeI2C(i2c, address, MPU6050_REGISTER_SMPLE_RATE_DIV, 1, &write[0]);
+    byte write = recipValue;
+    writeI2C(i2c, address, MPU6050_REGISTER_SMPLE_RATE_DIV, 1, &write);
     return true;
 }
 
@@ -32,21 +44,18 @@ bool MPU6050::setConfig(byte fsync, byte dlpf) {
     if(fsync < 0 || fsync > 7 || dlpf < 0 || dlpf > 7) {
         return false;
     }
-    byte* write = &fsync;
-    write[0] <<= 4;
-    write[0] |= dlpf;
-    writeI2C(i2c, address, MPU6050_REGISTER_CONFIG, 1, &write[0]);
+    byte write = (fsync << 4) | dlpf;
+    writeI2C(i2c, address, MPU6050_REGISTER_CONFIG, 1, &write);
     return true;
 }
 
 bool MPU6050::setAccelRange(byte range) {
-    if(range < 0 || range > 4) {
+    if(range < 0 || range >= 4) {
         return false;
     }
     aRange = range;
-    byte* write = &range;
-    write[0] <<= 3;
-    writeI2C(i2c, address, MPU6050_REGISTER_ACCEL_CONFIG, 1, &write[0]);
+    byte write = 3 << 3;
+    writeI2C(i2c, address, MPU6050_REGISTER_ACCEL_CONFIG, 1, &write);
     return true;
 }
 
@@ -55,9 +64,8 @@ bool MPU6050::setGyroRange(byte range) {
         return false;
     }
     gRange = range;
-    byte* write = &range;
-    write[0] <<= 3;
-    writeI2C(i2c, address, MPU6050_REGISTER_GYRO_CONFIG, 1, &write[0]);
+    byte write = range << 3;
+    writeI2C(i2c, address, MPU6050_REGISTER_GYRO_CONFIG, 1, &write);
     return true;
 }
 
@@ -75,19 +83,28 @@ bool MPU6050::calibrate() {
     FloatArray3 fVals = {0, 0, 0};
     for(uint16_t i = 0; i < 3000; i++) {
         getAccel(&fVals);
-        driftCal[0] = fVals.values[0];
-        driftCal[1] = fVals.values[1];
-        driftCal[2] = fVals.values[2];
+        driftCal[0] += fVals.values[0] / 3000.0;
+        driftCal[1] += fVals.values[1] / 3000.0;
+        driftCal[2] += fVals.values[2] / 3000.0;
         fVals = {0, 0, 0};
         getGyro(&fVals);
-        driftCal[3] = fVals.values[0];
-        driftCal[4] = fVals.values[1];
-        driftCal[5] = fVals.values[2];
+        driftCal[3] += fVals.values[0] / 3000.0;
+        driftCal[4] += fVals.values[1] / 3000.0;
+        driftCal[5]+= fVals.values[2] / 3000.0;
 
     }
     for(byte i = 0; i < 6; i++) {
         drift[i] = driftCal[i];
     }
+    #ifdef MPU6050INVAX
+    drift[0] *= -1;
+    #endif
+    #ifdef MPU6050INVAY
+    drift[1] *= -1;
+    #endif
+    #ifdef MPU6050INVAZ
+    drift[2] *= -1;
+    #endif
     return true;
 }
 

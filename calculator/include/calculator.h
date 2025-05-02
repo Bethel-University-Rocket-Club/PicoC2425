@@ -17,6 +17,7 @@ class Calculator {
     bool removeSensor(int identifier);
     bool newSample(int idenfitier, float newMeasurement, double newTimeSeconds, FloatArray3& out);
     bool configureInitialOffset(int identifier, float offset);
+    float getInitialOffset(int identifier);
     bool bmp280Calculations(CalcInfo& info, float newAltitude, double newTimeSeconds, FloatArray3& out);
     bool mpu6050Calculations(CalcInfo& info, float newAcceleration, double newTimeSeconds, FloatArray3& out);
     bool gtu7Calculations(CalcInfo& info, float newAltitude, double newTimeSeconds, FloatArray3& out);

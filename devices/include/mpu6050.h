@@ -87,7 +87,7 @@ class MPU6050 {
         readI2C(i2c, address, MPU6050_REGISTER_ACCEL_Y, 2, &singleMeasure[0]);
         if(*(uint16_t*)&singleMeasure[0] != oldRawData->ay) {
             oldRawData->ay = *(uint16_t*)&singleMeasure[0];
-            //printf("ay: %f\n", BEbytesToShort(&singleMeasure[0]) * accelScale[aRange]);
+            //printf("ay: %f, %f\n", BEbytesToShort(&singleMeasure[0]) * accelScale[aRange], drift[1]);
             float ay = applyDrift(BEbytesToShort(&singleMeasure[0]) * accelScale[aRange], drift[1]);
             #ifdef MPU6050INVAY
             ay *= -1;

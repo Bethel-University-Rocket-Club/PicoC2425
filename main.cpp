@@ -28,6 +28,10 @@ int BMPID;
 int MPUID;
 int GTUID;
 int MPXID;
+bool BMPFail = false;
+bool MPUFail = false;
+bool GTUFail = false;
+bool MPXFail = false;
 
 bool validateSensors() {
     sd_card_t* sd = sd_get_by_num(0);
@@ -44,25 +48,38 @@ bool validateSensors() {
     mpu = d->GetAccelerometer();
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
-    while(!bmp->checkConnection()) {
-        buzz(1000);
+    uint8_t failCount = 0;
+    while(!bmp->checkConnection() && failCount < 2) {
+        printf("BMP error\n");
+        buzz(10000);
         blink(1, 1000);
         blink(10, 250);
+        failCount++;
     }
+    if(!bmp->checkConnection() && failCount == 2) BMPFail = true;
+    failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    while(!mpu->checkConnection()) {
-        buzz(2000);
+    while(!mpu->checkConnection() && failCount < 2) {
+        printf("MPU error\n");
+        buzz(20000);
         blink(2, 1000);
         blink(10, 250);
+        failCount++;
     }
+    if(!mpu->checkConnection() && failCount == 2) MPUFail = true;
+    failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    while(!gtu->checkConnection()) {
-        buzz(3000);
+    while(!gtu->checkConnection() && failCount < 2) {
+        printf("GTU error\n");
+        buzz(30000);
         blink(3, 1000);
         blink(10, 250);
+        failCount++;
     }
+    if(!gtu->checkConnection() && failCount == 2) GTUFail = true;
+    failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     /*
@@ -75,7 +92,8 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!w->checkConnection()) {
-        buzz(5000);
+        printf("SDCARD error\n");
+        buzz(50000);
         blink(5, 1000);
         blink(10, 250);
     }
@@ -114,13 +132,41 @@ bool setup() {
 
 bool startCondition() {
     float accelUp = 0.0;
+    float alt = 0.0;
+    float alt2 = 0.0;
     while(true) {
         mpu->getAccelY(accelUp);
-        if(accelUp*9.8 > THRESHOLD) {
-        //if(accelUp*9.8 > 2) {
-            STARTTIMEMICRO = time_us_64();
-            c->setStartTime(STARTTIMEMICRO * 0.000001);
-            return true;
+        bmp->getAltitude(alt);
+        gtu->getAltitude(alt2);
+        //printf("accel: %f\n", (accelUp*9.8));
+        if(!MPUFail) {
+            //printf("accel\n");
+            if(accelUp*9.8 > THRESHOLD || accelUp*9.8 < THRESHOLD*-1){
+                //if(accelUp*9.8 > 2) {
+                STARTTIMEMICRO = time_us_64();
+                c->configureInitialOffset(GTUID, alt2);
+                c->configureInitialOffset(BMPID, alt);
+                c->setStartTime(STARTTIMEMICRO * 0.000001);
+                return true;
+            }
+        } else if(MPUFail && !BMPFail) {
+            //printf("barometric\n");
+            if(alt - c->getInitialOffset(BMPID) > 15) {
+                STARTTIMEMICRO = time_us_64();
+                //c->configureInitialOffset(GTUID, alt2);
+                //c->configureInitialOffset(BMPID, alt);
+                c->setStartTime(STARTTIMEMICRO * 0.000001);
+                return true;
+            }
+        } else if(MPUFail && BMPFail && !GTUFail) {
+            //printf("gps\n");
+            if(alt2 - c->getInitialOffset(GTUID) > 15) {
+                STARTTIMEMICRO = time_us_64();
+                //c->configureInitialOffset(GTUID, alt2);
+                //c->configureInitialOffset(BMPID, alt);
+                c->setStartTime(STARTTIMEMICRO * 0.000001);
+                return true;
+            }
         }
     }
     return false;
@@ -139,21 +185,33 @@ void setOffsets() {
 bool endCondition(float altitude) {
     static float apogee = 0.0;
     static uint32_t apogeeTime = STARTTIMEMICRO;
+    static bool ended = false;
     //1 second test
     /*
     if(time_us_64() - STARTTIMEMICRO > 1000000) {
         printf("end\n");
         return true;
     }*/
-    //printf("alt: %f, apg: %f\n", altitude, apogee);
-    if(altitude < apogee-5) {
+    //printf("alt: %f, apg: %f end: %d\n", altitude, apogee, ended);
+    if(!ended && altitude < apogee-5) {
         //1 second of the measurement being below apogee
-        if(time_us_64() - apogeeTime > 1000000) {
-            return true;
+        if(time_us_64() - apogeeTime > 10000000) {
+            while(!w->close()) {
+                tight_loop_contents();
+            }
+            while(!w->open("afterApogee.csv")) {
+                tight_loop_contents();
+            }
+            //printf("new file\n");
+            ended = true;
+            return false;
         }
     } else if(altitude >= apogee) {
         apogeeTime = time_us_64() - STARTTIMEMICRO;
         apogee = altitude;
+    } 
+    if(time_us_64() - STARTTIMEMICRO > 300000000) {
+        return true;
     }
     return false;
 }
@@ -168,6 +226,7 @@ void closeDown() {
     }
     w->flush();
     w->close();
+    w->unmount();
 }
 
 void calcWriteLoop() {
@@ -178,8 +237,12 @@ void calcWriteLoop() {
             curRead = queue->dequeue();
             c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
             w->writeData(curRead);
-            if(curRead->sensorNum == 0) { //based on bmp altitude
+            if(!BMPFail && curRead->sensorNum == 0) { //based on bmp altitude
                 altitude = curRead->data.values[0];
+            } else if(BMPFail && !GTUFail && curRead->sensorNum == 2) {
+                altitude = curRead->data.values[0];
+            } else if(BMPFail && GTUFail) { //rely on endCondition ending after 300 seconds
+                altitude = 0.0;
             }
             queue->finishDequeue();
         }
@@ -271,15 +334,16 @@ void samplingLoop() {
 
 int main() {
     stdio_init_all();
-    sleep_ms(100);
+    sleep_ms(2500);
     setup();
     blink(20, 100);
+    buzz(50);
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!startCondition()) {
         tight_loop_contents();
     }
-    setOffsets();
+    printf("started\n");
     multicore_launch_core1(calcWriteLoop);
     samplingLoop();
     closeDown();

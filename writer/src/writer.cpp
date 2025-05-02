@@ -2,15 +2,15 @@
 
 Writer::Writer(sd_card_t* sdCard) {
     this->sdCard = sdCard;
+    curName = "data.csv";
     FRESULT fr = FR_OK;
     for(int i = 0; i < 5; i++) {
-        fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
-        if (FR_OK == fr) {
+        if(mount()) {
             mounted = true;
-            break;
         }
     }
-    fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
+    fileOpen = this->open(curName);
+    //fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
     if(fr == FR_OK) fileOpen = true;
 }
 
@@ -38,11 +38,44 @@ bool Writer::writeHeader() {
 }
 
 bool Writer::close() {
-    f_close(&fileOut) == FR_OK;
-    return f_unmount(sdCard->pcName);
+    uint64_t startClose = time_us_64();
+    while(f_close(&fileOut) != FR_OK) {
+        if(time_us_64() - startClose > 1000000) return false;
+        sleep_ms(100);
+    }
+    return true;
 }
 
-bool Writer::writeData(DataBuffer *data) {
+bool Writer::open(const char* name) {
+    uint64_t startClose = time_us_64();
+    while(f_open(&fileOut, name, FA_OPEN_APPEND | FA_WRITE) != FR_OK) {
+        if(time_us_64() - startClose > 1000000) return false;
+        sleep_ms(100);
+    }
+    curName = name;
+    return true;
+}
+
+bool Writer::unmount() {
+    uint64_t startClose = time_us_64();
+    while(f_unmount(sdCard->pcName) != FR_OK) {
+        if(time_us_64() - startClose > 1000000) return false;
+        sleep_ms(100);
+    }
+    return true;
+}
+
+bool Writer::mount() {
+    uint64_t startClose = time_us_64();
+    while(f_mount(&sdCard->fatfs, sdCard->pcName, 1) != FR_OK) {
+        if(time_us_64() - startClose > 1000000) return false;
+        sleep_ms(100);
+    }
+    return true;
+}
+
+bool Writer::writeData(DataBuffer *data)
+{
     if(latestUnwrittenIndex > SDBUFSIZE / 2 - 200) {
         flush();
     }
@@ -60,8 +93,7 @@ bool Writer::flush() {
     } else {
         FRESULT fr = FR_OK;
         if(!mounted) {
-            fr = f_mount(&sdCard->fatfs, sdCard->pcName, 1);
-            if(fr != FR_OK) {
+            if(!mount()){
                 f_unmount(sdCard->pcName);
                 mounted = false;
                 return false;
@@ -69,9 +101,8 @@ bool Writer::flush() {
             mounted = true;
         }
         if(!fileOpen) {
-            fr = f_open(&fileOut, "data.csv", FA_OPEN_APPEND | FA_WRITE);
-            if(fr != FR_OK) {
-                f_close(&fileOut);
+            if(!open(curName)) {
+                close();
                 fileOpen = false;
                 f_unmount(sdCard->pcName);
                 mounted = false;
@@ -109,8 +140,8 @@ bool Writer::writeData(const char *data, int length) {
 }
 
 const char *Writer::headerTime(int &length) {
-    length = 4;
-    return "Time";
+    length = 8;
+    return "Time(us)";
 }
 
 const char *Writer::headerSample(int &length) {
@@ -119,23 +150,23 @@ const char *Writer::headerSample(int &length) {
 }
 
 const char *Writer::headerBMP(int &length) {
-    length = 29;
-    return "BMP280Alt,BMP280Vel,BMP280Acc";
+    length = 44;
+    return "BMP280Alt(m),BMP280Vel(m/s),BMP280Acc(m/s/s)";
 }
 
 const char *Writer::headerMPU(int &length) {
-    length = 32;
-    return "MPU6050Alt,MPU6050Vel,MPU6050Acc";
+    length = 47;
+    return "MPU6050Alt(m),MPU6050Vel(m/s),MPU6050Acc(m/s/s)";
 }
 
 const char *Writer::headerGT(int &length) {
-    length = 26;
-    return "GT-U7Alt,GT-U7Vel,GT-U7Acc";
+    length = 41;
+    return "GT-U7Alt(m),GT-U7Vel(m/s),GT-U7Acc(m/s/s)";
 }
 
 const char *Writer::headerPitot(int &length) {
-    length = 26;
-    return "PitotAlt,PitotVel,PitotAcc";
+    length = 41;
+    return "PitotAlt(m),PitotVel(m/s),PitotAcc(m/s/s)";
 }
 
 bool Writer::formatData(char* startLocation, uint8_t& length, DataBuffer *data) {

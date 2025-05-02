@@ -17,6 +17,21 @@ bool Calculator::newSample(int identifier, float newMeasurement, double newTime,
     return (this->*calcFunctions[identifier])(sensorInfo[identifier], newMeasurement, newTime, out);
 }
 
+float Calculator::getInitialOffset(int identifier) {
+    if(sensorInfo[identifier].type == CalcInfo::BMP280CalcInfo) {
+        BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        return bmp280InfoPtr->offsetInfo;
+    } else if(sensorInfo[identifier].type == CalcInfo::GTU7CalcInfo) {
+        GTU7CalcInfo* gtu7InfoPtr = static_cast<GTU7CalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        return gtu7InfoPtr->offsetInfo;
+    } else if(sensorInfo[identifier].type == CalcInfo::MPX5700GPCalcInfo) {
+        MPX5700GPCalcInfo* mpx5700gpInfoPtr = static_cast<MPX5700GPCalcInfo*>(sensorInfo[identifier].sensorSpecificData);
+        return mpx5700gpInfoPtr->offsetInfo;
+    }
+    //not a type that has offset info
+    return 0.0;
+}
+
 bool Calculator::configureInitialOffset(int identifier, float offset) {
     if(sensorInfo[identifier].type == CalcInfo::BMP280CalcInfo) {
         BMP280CalcInfo* bmp280InfoPtr = static_cast<BMP280CalcInfo*>(sensorInfo[identifier].sensorSpecificData);
@@ -49,7 +64,6 @@ bool Calculator::bmp280Calculations(CalcInfo& info, float newAltitude, double ne
     bmp280InfoPtr->pastVelocity = out.values[1];
     info.timeInfo = newTime;
     return true;
-
 }
 
 bool Calculator::mpu6050Calculations(CalcInfo& info, float newAcceleration, double newTime, FloatArray3& out) {
