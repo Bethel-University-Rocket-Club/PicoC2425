@@ -48,7 +48,7 @@
 #define MPU6050NOAX
 //#define MPU6050NOAY //off
 #define MPU6050NOAZ //on
-//#define MPU6050INVAY //on
+#define MPU6050INVAY //on
 //#define MPU6050INVAZ //off
 #define MPU6050NOGX
 #define MPU6050NOGY
