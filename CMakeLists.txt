@@ -39,8 +39,8 @@ pico_sdk_init()
 set(DEVICE_SOURCES
     devices/src/bmp280.cpp
     devices/src/gtu7.cpp
-    devices/src/mpu6050.cpp
     devices/src/mpx5700gp.cpp
+    devices/src/ADXL377.cpp
     devices/src/deviceConfig.cpp
 )
 # List your calculator source files
@@ -52,15 +52,11 @@ set(CALCULATOR_SOURCES
 # List your writer source files
 set(WRITER_SOURCES
     writer/src/writer.cpp
-    writer/src/hw_config.c
 )
 # List your queue source files
 set(QUEUE_SOURCES
     queue/src/circularQueue.cpp
 )
-
-# Add the FatFs_SPI library
-add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
 # Add executable. Include the device source files
 add_executable(main
@@ -101,7 +97,6 @@ target_include_directories(main PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(main
-        hardware_spi
         hardware_i2c
         hardware_adc
         hardware_dma
@@ -109,7 +104,7 @@ target_link_libraries(main
         hardware_interp
         hardware_timer
         hardware_clocks
-        FatFs_SPI
+        hardware_flash
         pico_multicore
         )
 

@@ -3,7 +3,7 @@
 #define LED_PIN PICO_DEFAULT_LED_PIN // Pico's onboard LED pin
 #define BUZZ_PIN 28
 
-#define THRESHOLD (2*9.8) //2g's
+#define THRESHOLD (3*9.8) //2g's
 #define SEAPRESSURE 1013.25
 #define AIRDENSITY 1.3
 
@@ -45,15 +45,8 @@
 #define MPX5700GPCONFIG
 #define MPX5700GPANALOG 26 //gp
 
-#define MPU6050NOAX
-//#define MPU6050NOAY //off
-#define MPU6050NOAZ //on
-#define MPU6050INVAY //on
-//#define MPU6050INVAZ //off
-#define MPU6050NOGX
-#define MPU6050NOGY
-#define MPU6050NOGZ
-#define MPU6050NOTEMP
+#define ADXL377CONFIG
+#define ADXL377ANALOG 27 //gp
 
 #define CALCULATORMAXSIZE 4
 #endif

@@ -10,13 +10,12 @@
 #include "calculator.h"
 #include "writer.h"
 #include "circularQueue.h"
-#include "hw_config.h"
 
 Devices* d;
 Writer* w;
 Calculator* c;
 BMP280* bmp;
-MPU6050* mpu;
+ADXL377* adx;
 GTU7* gtu;
 MPX5700GP* mpx;
 CircularQueue* queue;
@@ -25,27 +24,20 @@ bool END = false;
 bool DONEWRITE = false;
 uint64_t STARTTIMEMICRO = 0.0;
 int BMPID;
-int MPUID;
+int ADXID;
 int GTUID;
 int MPXID;
 bool BMPFail = false;
-bool MPUFail = false;
+bool ADXFail = false;
 bool GTUFail = false;
 bool MPXFail = false;
 
 bool validateSensors() {
-    sd_card_t* sd = sd_get_by_num(0);
-    sd->spi->hw_inst = spi0;
-    sd->spi->miso_gpio = SDCARDMISO;
-    sd->spi->mosi_gpio = SDCARDMOSI;
-    sd->spi->sck_gpio = SDCARDSCK;
-    sd->ss_gpio = SDCARDCS;
     d = new Devices();
-    w = new Writer(sd);
     c = new Calculator();
     queue = new CircularQueue();
     bmp = d->GetPressureSensor();
-    mpu = d->GetAccelerometer();
+    adx = d->GetAccelerometer();
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
     uint8_t failCount = 0;
@@ -60,17 +52,18 @@ bool validateSensors() {
     failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    while(!mpu->checkConnection() && failCount < 2) {
-        printf("MPU error\n");
-        buzz(20000);
+    while(!adx->checkConnection() && failCount < 2) {
+        printf("ADX error\n");
+        //buzz(20000);
         blink(2, 1000);
         blink(10, 250);
         failCount++;
     }
-    if(!mpu->checkConnection() && failCount == 2) MPUFail = true;
+    if(!adx->checkConnection() && failCount == 2) ADXFail = true;
     failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    /*
     while(!gtu->checkConnection() && failCount < 2) {
         printf("GTU error\n");
         buzz(30000);
@@ -79,6 +72,7 @@ bool validateSensors() {
         failCount++;
     }
     if(!gtu->checkConnection() && failCount == 2) GTUFail = true;
+    */
     failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -92,7 +86,7 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!w->checkConnection()) {
-        printf("SDCARD error\n");
+        printf("WRITER error\n");
         buzz(50000);
         blink(5, 1000);
         blink(10, 250);
@@ -118,7 +112,7 @@ bool setup() {
     mpx->setAirDensity(AIRDENSITY);
     float measure = 0.0;
     BMPID = c->addSensor(&Calculator::bmp280Calculations);
-    MPUID = c->addSensor(&Calculator::mpu6050Calculations);
+    ADXID = c->addSensor(&Calculator::mpu6050Calculations);
     GTUID = c->addSensor(&Calculator::gtu7Calculations);
     MPXID = c->addSensor(&Calculator::mpx5700gpCalculations);
     bmp->getAltitude(measure);
@@ -135,11 +129,12 @@ bool startCondition() {
     float alt = 0.0;
     float alt2 = 0.0;
     while(true) {
-        mpu->getAccelY(accelUp);
+        //ADX arrow direction indicates that if oriented downwards, gravity is negative
+        adx->getAccelY(accelUp);
         bmp->getAltitude(alt);
         gtu->getAltitude(alt2);
         //printf("accel: %f\n", (accelUp*9.8));
-        if(!MPUFail) {
+        if(!ADXFail) {
             //printf("accel\n");
             if(accelUp*9.8 > THRESHOLD || accelUp*9.8 < THRESHOLD*-1){
                 //if(accelUp*9.8 > 2) {
@@ -149,7 +144,7 @@ bool startCondition() {
                 c->setStartTime(STARTTIMEMICRO * 0.000001);
                 return true;
             }
-        } else if(MPUFail && !BMPFail) {
+        } else if(ADXFail && !BMPFail) {
             //printf("barometric\n");
             if(alt - c->getInitialOffset(BMPID) > 15) {
                 STARTTIMEMICRO = time_us_64();
@@ -158,7 +153,7 @@ bool startCondition() {
                 c->setStartTime(STARTTIMEMICRO * 0.000001);
                 return true;
             }
-        } else if(MPUFail && BMPFail && !GTUFail) {
+        } else if(ADXFail && BMPFail && !GTUFail) {
             //printf("gps\n");
             if(alt2 - c->getInitialOffset(GTUID) > 15) {
                 STARTTIMEMICRO = time_us_64();
@@ -258,6 +253,7 @@ void samplingLoop() {
     uint32_t countMPU = 0;
     uint32_t countGTU = 0;
     uint32_t countMPX = 0;
+    uint64_t analogSampleTime = STARTTIMEMICRO;
     float measure = 0.0;
     while(!END) {
         elapsedTime = time_us_64() - STARTTIMEMICRO;
@@ -274,24 +270,6 @@ void samplingLoop() {
                 curWrite->sensorNum = 0;
                 curWrite->sigDecimalDigits = 2;
                 curWrite->data.values[0] = measure;
-                queue->finishEnqueue();
-            }
-        }
-        elapsedTime = time_us_64() - STARTTIMEMICRO;
-        if(mpu->getAccelY(measure) && !queue->isFull()) {
-            curWrite = queue->startEnqueue();
-            if(curWrite != nullptr) {
-                measure *= 9.8;
-                aggSampleCount++;
-                countMPU++;
-                curWrite->aggSampleNum = aggSampleCount;
-                curWrite->sensorSampleNum = countMPU;
-                curWrite->elapsedTime = elapsedTime;
-                curWrite->sensorSample = measure;
-                curWrite->sensorMax = 3;
-                curWrite->sensorNum = 1;
-                curWrite->sigDecimalDigits = 3;
-                curWrite->data.values[2] = measure;
                 queue->finishEnqueue();
             }
         }
@@ -313,20 +291,40 @@ void samplingLoop() {
             }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
-        if(mpx->getVelocity(measure) && !queue->isFull()) {
-            curWrite = queue->startEnqueue();
-            if(curWrite != nullptr) {
-                aggSampleCount++;
-                countMPX++;
-                curWrite->aggSampleNum = aggSampleCount;
-                curWrite->sensorSampleNum = countMPX;
-                curWrite->elapsedTime = elapsedTime;
-                curWrite->sensorSample = measure;
-                curWrite->sensorMax = 3;
-                curWrite->sensorNum = 3;
-                curWrite->sigDecimalDigits = 2;
-                curWrite->data.values[1] = measure;
-                queue->finishEnqueue();
+        if(elapsedTime - analogSampleTime > 500) { //collect a sample ~2000 times a second
+            if(adx->getAccelY(measure) && !queue->isFull()) {
+                curWrite = queue->startEnqueue();
+                if(curWrite != nullptr) {
+                    measure *= 9.8;
+                    aggSampleCount++;
+                    countMPU++;
+                    curWrite->aggSampleNum = aggSampleCount;
+                    curWrite->sensorSampleNum = countMPU;
+                    curWrite->elapsedTime = elapsedTime;
+                    curWrite->sensorSample = measure;
+                    curWrite->sensorMax = 3;
+                    curWrite->sensorNum = 1;
+                    curWrite->sigDecimalDigits = 3;
+                    curWrite->data.values[2] = measure;
+                    queue->finishEnqueue();
+                }
+            }
+            elapsedTime = time_us_64() - STARTTIMEMICRO;
+            if(mpx->getVelocity(measure) && !queue->isFull()) {
+                curWrite = queue->startEnqueue();
+                if(curWrite != nullptr) {
+                    aggSampleCount++;
+                    countMPX++;
+                    curWrite->aggSampleNum = aggSampleCount;
+                    curWrite->sensorSampleNum = countMPX;
+                    curWrite->elapsedTime = elapsedTime;
+                    curWrite->sensorSample = measure;
+                    curWrite->sensorMax = 3;
+                    curWrite->sensorNum = 3;
+                    curWrite->sigDecimalDigits = 2;
+                    curWrite->data.values[1] = measure;
+                    queue->finishEnqueue();
+                }
             }
         }
     }
@@ -334,6 +332,7 @@ void samplingLoop() {
 
 int main() {
     stdio_init_all();
+    adc_init();
     sleep_ms(2500);
     setup();
     blink(20, 100);
@@ -343,6 +342,7 @@ int main() {
     while(!startCondition()) {
         tight_loop_contents();
     }
+
     printf("started\n");
     multicore_launch_core1(calcWriteLoop);
     samplingLoop();

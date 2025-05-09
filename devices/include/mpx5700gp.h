@@ -3,7 +3,6 @@
 #include "common.h"
 #include "hardware/adc.h"
 
-
 class MPX5700GP {
     public:
     MPX5700GP(byte adcPin);

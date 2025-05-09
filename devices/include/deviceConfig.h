@@ -2,7 +2,6 @@
 #define DEVICECONFIG_H
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "hardware/spi.h"
 #include "hardware/i2c.h"
 #include "hardware/uart.h"
 #include "devices.h"
@@ -15,21 +14,8 @@
 #define BMP280FREQUENCY 400000 //hz
 #endif
 
-#ifndef MPU6050CONFIG
-//MPU6050 I2C pin config
-#define MPU6050BUS 0
-#define MPU6050SDA 12 //gp
-#define MPU6050SCL 13 //gp
-#define MPU6050FREQUENCY 400000 //hz
-#endif
-
-#ifndef SCARDCONFIG
-//SDCard CS/SPI pin config
-#define SDCARDCS 22 //gp
-#define SDCARDBUS 0
-#define SDCARDSCK 2 //gp
-#define SDCARDMOSI 3 //gp
-#define SDCARDMISO 4 //gp
+#ifndef ADXL377CONFIG
+#define ADXL377ANALOG 27
 #endif
 
 #ifndef GPSCONFIG
@@ -48,7 +34,7 @@
 class Devices {
     public:
     BMP280* GetPressureSensor();
-    MPU6050* GetAccelerometer();
+    ADXL377* GetAccelerometer();
     GTU7* GetGPS();
     MPX5700GP* GetPitotTube();
 };
