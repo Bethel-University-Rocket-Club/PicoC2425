@@ -26,7 +26,7 @@ class ADXL377 {
     bool ySet = false;
     bool zSet = false;
     float drift[3] = {0.0, 0.0, 0.0}; //x, y, z
-    float tempDrift[3] = {0.0, 0.0, 0.0};
+    double tempDrift[3] = {0.0, 0.0, 0.0};
 };
 
 #endif

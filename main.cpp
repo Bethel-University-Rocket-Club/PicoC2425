@@ -9,9 +9,12 @@
 #include "deviceConfig.h"
 #include "calculator.h"
 #include "writer.h"
+#include "sdwriter.h"
 #include "circularQueue.h"
+#include "hw_config.h"
 
 Devices* d;
+SDWriter* sdw;
 Writer* w;
 Calculator* c;
 BMP280* bmp;
@@ -33,6 +36,12 @@ bool GTUFail = false;
 bool MPXFail = false;
 
 bool validateSensors() {
+    sd_card_t* sd = sd_get_by_num(0);
+    sd->spi->hw_inst = spi0;
+    sd->spi->miso_gpio = SDCARDMISO;
+    sd->spi->mosi_gpio = SDCARDMOSI;
+    sd->spi->sck_gpio = SDCARDSCK;
+    sd->ss_gpio = SDCARDCS;
     d = new Devices();
     c = new Calculator();
     queue = new CircularQueue();
@@ -40,6 +49,8 @@ bool validateSensors() {
     adx = d->GetAccelerometer();
     gtu = d->GetGPS();
     mpx = d->GetPitotTube();
+    w = new Writer();
+    sdw = new SDWriter(sd);
     uint8_t failCount = 0;
     while(!bmp->checkConnection() && failCount < 2) {
         printf("BMP error\n");
@@ -63,29 +74,27 @@ bool validateSensors() {
     failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    /*
     while(!gtu->checkConnection() && failCount < 2) {
-        printf("GTU error\n");
-        buzz(30000);
-        blink(3, 1000);
-        blink(10, 250);
-        failCount++;
+    printf("GTU error\n");
+    buzz(30000);
+    blink(3, 1000);
+    blink(10, 250);
+    failCount++;
     }
     if(!gtu->checkConnection() && failCount == 2) GTUFail = true;
-    */
     failCount = 0;
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     /*
     while(!mpx->checkConnection()) {
-        buzz(4000);
-        blink(4, 1000);
-        blink(10, 250);
+    buzz(4000);
+    blink(4, 1000);
+    blink(10, 250);
     }
-        */
+    */
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    while(!w->checkConnection()) {
+    while(!sdw->checkConnection()) {
         printf("WRITER error\n");
         buzz(50000);
         blink(5, 1000);
@@ -100,14 +109,23 @@ bool setup() {
     // Configure the onboard LED GPIO as an output.
     gpio_init(LED_PIN);
     gpio_init(BUZZ_PIN);
+    gpio_init(PRINT_PIN);
+    gpio_init(SDWRITE_PIN);
+    gpio_set_dir(SDWRITE_PIN, GPIO_IN);
+    gpio_set_dir(PRINT_PIN, GPIO_IN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_set_dir(BUZZ_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     buzz(50);
+    if(gpio_get(PRINT_PIN) || gpio_get(SDWRITE_PIN)) {
+        return false;
+    }
     validateSensors();
+    printf("validated\n");
     //blink(3, 500); //remove eventually
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    w->writeHeader();
+    sdw->writeHeader();
+    printf("header written\n");
     bmp->setSeaPressure(SEAPRESSURE);
     mpx->setAirDensity(AIRDENSITY);
     float measure = 0.0;
@@ -133,9 +151,7 @@ bool startCondition() {
         adx->getAccelY(accelUp);
         bmp->getAltitude(alt);
         gtu->getAltitude(alt2);
-        //printf("accel: %f\n", (accelUp*9.8));
         if(!ADXFail) {
-            //printf("accel\n");
             if(accelUp*9.8 > THRESHOLD || accelUp*9.8 < THRESHOLD*-1){
                 //if(accelUp*9.8 > 2) {
                 STARTTIMEMICRO = time_us_64();
@@ -148,8 +164,8 @@ bool startCondition() {
             //printf("barometric\n");
             if(alt - c->getInitialOffset(BMPID) > 15) {
                 STARTTIMEMICRO = time_us_64();
-                //c->configureInitialOffset(GTUID, alt2);
-                //c->configureInitialOffset(BMPID, alt);
+                c->configureInitialOffset(GTUID, alt2);
+                c->configureInitialOffset(BMPID, alt);
                 c->setStartTime(STARTTIMEMICRO * 0.000001);
                 return true;
             }
@@ -157,8 +173,8 @@ bool startCondition() {
             //printf("gps\n");
             if(alt2 - c->getInitialOffset(GTUID) > 15) {
                 STARTTIMEMICRO = time_us_64();
-                //c->configureInitialOffset(GTUID, alt2);
-                //c->configureInitialOffset(BMPID, alt);
+                c->configureInitialOffset(GTUID, alt2);
+                c->configureInitialOffset(BMPID, alt);
                 c->setStartTime(STARTTIMEMICRO * 0.000001);
                 return true;
             }
@@ -180,34 +196,25 @@ void setOffsets() {
 bool endCondition(float altitude) {
     static float apogee = 0.0;
     static uint32_t apogeeTime = STARTTIMEMICRO;
-    static bool ended = false;
-    //1 second test
+    //5 second test
     /*
-    if(time_us_64() - STARTTIMEMICRO > 1000000) {
+    if(time_us_64() - STARTTIMEMICRO > 5000000) {
         printf("end\n");
+        fflush(stdout);
         return true;
     }*/
     //printf("alt: %f, apg: %f end: %d\n", altitude, apogee, ended);
-    if(!ended && altitude < apogee-5) {
+    if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
-        if(time_us_64() - apogeeTime > 10000000) {
-            while(!w->close()) {
-                tight_loop_contents();
-            }
-            while(!w->open("afterApogee.csv")) {
-                tight_loop_contents();
-            }
-            //printf("new file\n");
-            ended = true;
-            return false;
+        if(time_us_64() - apogeeTime > 1000000) {
+            printf("endApogee\n");
+            fflush(stdout);
+            return true;
         }
     } else if(altitude >= apogee) {
         apogeeTime = time_us_64() - STARTTIMEMICRO;
         apogee = altitude;
     } 
-    if(time_us_64() - STARTTIMEMICRO > 300000000) {
-        return true;
-    }
     return false;
 }
 
@@ -216,12 +223,20 @@ void closeDown() {
     while(queue->size() > 0) {
         curRead = queue->dequeue();
         c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
-        w->writeData(curRead);
+        w->writeData(curRead, true);
         queue->finishDequeue();
     }
+    printf("closeDown\n");
     w->flush();
-    w->close();
+    sdw->flush();
+    printf("flushed\n");
+    w->close(true);
+    sdw->close();
+    printf("closed\n");
     w->unmount();
+    sdw->unmount();
+    printf("unmounted\n");
+    fflush(stdout);
 }
 
 void calcWriteLoop() {
@@ -231,7 +246,12 @@ void calcWriteLoop() {
         if(queue->size() > 0) {
             curRead = queue->dequeue();
             c->newSample(curRead->sensorNum, curRead->sensorSample, curRead->elapsedTime * 0.000001, curRead->data);
-            w->writeData(curRead);
+            sdw->writeData(curRead);
+            bool hasSpace = w->writeData(curRead, false);
+            if(!hasSpace) {
+                printf("noSPace\n");
+                break;
+            }
             if(!BMPFail && curRead->sensorNum == 0) { //based on bmp altitude
                 altitude = curRead->data.values[0];
             } else if(BMPFail && !GTUFail && curRead->sensorNum == 2) {
@@ -291,11 +311,12 @@ void samplingLoop() {
             }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
-        if(elapsedTime - analogSampleTime > 500) { //collect a sample ~2000 times a second
+        if(elapsedTime - analogSampleTime > 500) {
+            analogSampleTime = elapsedTime;
             if(adx->getAccelY(measure) && !queue->isFull()) {
                 curWrite = queue->startEnqueue();
                 if(curWrite != nullptr) {
-                    measure *= 9.8;
+                    measure *= -9.8;
                     aggSampleCount++;
                     countMPU++;
                     curWrite->aggSampleNum = aggSampleCount;
@@ -309,7 +330,6 @@ void samplingLoop() {
                     queue->finishEnqueue();
                 }
             }
-            elapsedTime = time_us_64() - STARTTIMEMICRO;
             if(mpx->getVelocity(measure) && !queue->isFull()) {
                 curWrite = queue->startEnqueue();
                 if(curWrite != nullptr) {
@@ -333,20 +353,56 @@ void samplingLoop() {
 int main() {
     stdio_init_all();
     adc_init();
-    sleep_ms(2500);
-    setup();
-    blink(20, 100);
-    buzz(50);
-    sleep_ms(10);
+    sleep_ms(1000);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    while(!startCondition()) {
-        tight_loop_contents();
+    if(setup()) {
+        printf("collecting\n");
+        blink(20, 100);
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        buzz(5000);
+        printf("beginClearFlash\n");
+        w->clearFlash();
+        printf("endClearFlash\n");
+        buzz(50);
+        while(!startCondition()) {
+            tight_loop_contents();
+        }
+        printf("started\n");
+        multicore_lockout_victim_init();
+        multicore_launch_core1(calcWriteLoop);
+        samplingLoop();
+        closeDown();
+        printf("ended\n");
+        fflush(stdout);
+    } else {
+        if(gpio_get(PRINT_PIN)) {
+            blink(20, 200);
+            gpio_put(PICO_DEFAULT_LED_PIN, 1);
+            printf("printing\n");
+            char received = getchar();
+            w->printData();
+        } else {
+            blink(20, 200);
+            gpio_put(PICO_DEFAULT_LED_PIN, 1);
+            w = new Writer();
+            sd_card_t* sd = sd_get_by_num(0);
+            sd->spi->hw_inst = spi0;
+            sd->spi->miso_gpio = SDCARDMISO;
+            sd->spi->mosi_gpio = SDCARDMOSI;
+            sd->spi->sck_gpio = SDCARDSCK;
+            sd->ss_gpio = SDCARDCS;
+            sdw = new SDWriter(sd);
+            blink(20, 200);
+            gpio_put(PICO_DEFAULT_LED_PIN, 1);
+            printf("sdWriting\n");
+            char received = getchar();
+            if(!w->writeDataTo(sdw)) {
+                printf("Failed to write\n");
+                buzz(50000);
+            }
+        }
     }
-
-    printf("started\n");
-    multicore_launch_core1(calcWriteLoop);
-    samplingLoop();
-    closeDown();
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    fflush(stdout);
     return 0;
 }

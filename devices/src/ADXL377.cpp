@@ -27,7 +27,7 @@ bool ADXL377::getAccel(float &accelX, float &accelY, float &accelZ) {
 }
 
 bool ADXL377::getAccelX(float &accelX) {
-    static WindowAverage movingAverage = WindowAverage(100, 0.0);
+    static WindowAverage movingAverage = WindowAverage(512, 0.0);
     if (!zSet) return false;
     adc_select_input(adcPinX - 26);
     uint16_t rawV = adc_read();
@@ -39,7 +39,7 @@ bool ADXL377::getAccelX(float &accelX) {
 }
 
 bool ADXL377::getAccelY(float &accelY) {
-    static WindowAverage movingAverage = WindowAverage(100, 0.0);
+    static WindowAverage movingAverage = WindowAverage(512, 0.0);
     if (!ySet) return false;
     adc_select_input(adcPinY - 26);
     uint16_t rawV = adc_read();
@@ -51,7 +51,7 @@ bool ADXL377::getAccelY(float &accelY) {
 }
 
 bool ADXL377::getAccelZ(float &accelZ) {
-    static WindowAverage movingAverage = WindowAverage(100, 0.0);
+    static WindowAverage movingAverage = WindowAverage(512, 0.0);
     if (!zSet) return false;
     adc_select_input(adcPinZ - 26);
     uint16_t rawV = adc_read();
@@ -82,7 +82,6 @@ bool ADXL377::checkConnection() {
         adc_select_input(adcPinZ-26);
         uint16_t zVal = adc_read();
         float zVoltage = zVal * (3.3 / 4096.0f);
-        printf("Volt: %f, %f\n", zVoltage, std::abs(zVoltage - 1.65));
         z = std::abs(zVoltage - 1.65) < 0.25;    
     }
     return x && y && z;

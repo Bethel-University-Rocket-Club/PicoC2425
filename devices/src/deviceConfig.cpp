@@ -17,7 +17,7 @@ BMP280* Devices::GetPressureSensor() {
 }
 
 ADXL377* Devices::GetAccelerometer() {
-    return new ADXL377(0, 0, ADXL377ANALOG);
+    return new ADXL377(0, ADXL377ANALOG, 0);
 }
 
 GTU7 *Devices::GetGPS() {

@@ -52,11 +52,16 @@ set(CALCULATOR_SOURCES
 # List your writer source files
 set(WRITER_SOURCES
     writer/src/writer.cpp
+    writer/src/sdwriter.cpp
+    writer/src/hw_config.c
 )
 # List your queue source files
 set(QUEUE_SOURCES
     queue/src/circularQueue.cpp
 )
+
+# Add the FatFs_SPI library
+add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
 # Add executable. Include the device source files
 add_executable(main
@@ -98,13 +103,16 @@ target_include_directories(main PRIVATE
 # Add any user requested libraries
 target_link_libraries(main
         hardware_i2c
+        hardware_spi
         hardware_adc
         hardware_dma
         hardware_pio
         hardware_interp
         hardware_timer
         hardware_clocks
+        hardware_sync
         hardware_flash
+        FatFs_SPI
         pico_multicore
         )
 
