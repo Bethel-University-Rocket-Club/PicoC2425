@@ -54,9 +54,9 @@ bool validateSensors() {
     uint8_t failCount = 0;
     while(!bmp->checkConnection() && failCount < 2) {
         printf("BMP error\n");
-        buzz(10000);
-        blink(1, 1000);
-        blink(10, 250);
+        //buzz(10000); //pressure sensor problem
+        //blink(1, 1000); //pressure sensor problem
+        //blink(10, 250); //trying again
         failCount++;
     }
     if(!bmp->checkConnection() && failCount == 2) BMPFail = true;
@@ -64,10 +64,9 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!adx->checkConnection() && failCount < 2) {
-        printf("ADX error\n");
-        //buzz(20000);
-        blink(2, 1000);
-        blink(10, 250);
+        //buzz(20000); //accelerometer problem
+        //blink(2, 1000); //accelerometer problem
+        //blink(10, 250); //trying again
         failCount++;
     }
     if(!adx->checkConnection() && failCount == 2) ADXFail = true;
@@ -75,11 +74,11 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!gtu->checkConnection() && failCount < 2) {
-    printf("GTU error\n");
-    buzz(30000);
-    blink(3, 1000);
-    blink(10, 250);
-    failCount++;
+        printf("GTU error\n");
+        //buzz(30000); //gps problem
+        //blink(3, 1000); //gps problem
+        //blink(10, 250); //trying again
+        failCount++;
     }
     if(!gtu->checkConnection() && failCount == 2) GTUFail = true;
     failCount = 0;
@@ -96,9 +95,9 @@ bool validateSensors() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!sdw->checkConnection()) {
         printf("WRITER error\n");
-        buzz(50000);
-        blink(5, 1000);
-        blink(10, 250);
+        //buzz(50000); //sdcard problem
+        //blink(5, 1000); //sdcard problem
+        //blink(10, 250); //trying again
     }
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -116,13 +115,12 @@ bool setup() {
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_set_dir(BUZZ_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    buzz(50);
+    //buzz(50); //first buzz, indicating pico has power and is starting to do stuff
     if(gpio_get(PRINT_PIN) || gpio_get(SDWRITE_PIN)) {
         return false;
     }
     validateSensors();
     printf("validated\n");
-    //blink(3, 500); //remove eventually
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     sdw->writeHeader();
     printf("header written\n");
@@ -357,32 +355,31 @@ int main() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     if(setup()) {
         printf("collecting\n");
-        blink(20, 100);
+        //blink(20, 100); /signifies sensors are validated
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
-        buzz(5000);
+        //buzz(5000); //warning that flash is about to be erased
         printf("beginClearFlash\n");
         w->clearFlash();
-        printf("endClearFlash\n");
-        buzz(50);
+        //printf("endClearFlash\n");
+        //buzz(50); //third buzz, ready for launch
         while(!startCondition()) {
             tight_loop_contents();
         }
-        printf("started\n");
+        //printf("started\n");
         multicore_lockout_victim_init();
         multicore_launch_core1(calcWriteLoop);
         samplingLoop();
         closeDown();
-        printf("ended\n");
+        //printf("ended\n");
         fflush(stdout);
     } else {
         if(gpio_get(PRINT_PIN)) {
-            blink(20, 200);
+            //blink(20, 200); //signifies reading from flash, and doing something on user input
             gpio_put(PICO_DEFAULT_LED_PIN, 1);
             printf("printing\n");
             char received = getchar();
             w->printData();
         } else {
-            blink(20, 200);
             gpio_put(PICO_DEFAULT_LED_PIN, 1);
             w = new Writer();
             sd_card_t* sd = sd_get_by_num(0);
@@ -392,7 +389,7 @@ int main() {
             sd->spi->sck_gpio = SDCARDSCK;
             sd->ss_gpio = SDCARDCS;
             sdw = new SDWriter(sd);
-            blink(20, 200);
+            //blink(20, 200); //signifies reading from flash, and doing something on user input
             gpio_put(PICO_DEFAULT_LED_PIN, 1);
             printf("sdWriting\n");
             char received = getchar();
