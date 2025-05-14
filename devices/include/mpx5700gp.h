@@ -13,8 +13,8 @@ class MPX5700GP {
     bool getZeroVoltage(float& zeroV);
 
     private:
-    uint16_t oldRaw;
-    float oldVel;
+    uint16_t oldRaw = 0;
+    float oldVel = 0;
     byte adcPin;
     float airDensityRecip;
     float zeroVal;

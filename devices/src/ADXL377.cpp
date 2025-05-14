@@ -31,10 +31,16 @@ bool ADXL377::getAccelX(float &accelX) {
     if (!zSet) return false;
     adc_select_input(adcPinX - 26);
     uint16_t rawV = adc_read();
+    if(rawV == oldRaw[0]) {
+        accelX = oldComp[0];
+        return false;
+    }
+    oldRaw[0] = rawV;
     float voltage = rawV * (3.3f / 4096.0f);
     accelX = (voltage/3.3f)*400 - 200;
     accelX -= drift[0];
     accelX = movingAverage.update(accelX);
+    oldComp[0] = accelX;
     return true;
 }
 
@@ -43,10 +49,16 @@ bool ADXL377::getAccelY(float &accelY) {
     if (!ySet) return false;
     adc_select_input(adcPinY - 26);
     uint16_t rawV = adc_read();
+    if(rawV == oldRaw[1]) {
+        accelY = oldComp[1];
+        return false;
+    }
+    oldRaw[1] = rawV;
     float voltage = rawV * (3.3f / 4096.0f);
     accelY = (voltage/3.3f)*400 - 200;
     accelY -= drift[1];
     accelY = movingAverage.update(accelY);
+    oldComp[1] = accelY;
     return true;
 }
 
@@ -55,10 +67,16 @@ bool ADXL377::getAccelZ(float &accelZ) {
     if (!zSet) return false;
     adc_select_input(adcPinZ - 26);
     uint16_t rawV = adc_read();
+    if(rawV == oldRaw[2]) {
+        accelZ = oldComp[2];
+        return false;
+    }
+    oldRaw[2] = rawV;
     float voltage = rawV * (3.3f / 4096.0f);
     accelZ = (voltage/3.3f)*400 - 200;
     accelZ -= drift[2];
     accelZ = movingAverage.update(accelZ);
+    oldComp[2] = accelZ;
     return true;
 }
 

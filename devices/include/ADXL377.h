@@ -19,6 +19,8 @@ class ADXL377 {
     bool getRawAccelX(float &accelX);
     bool getRawAccelY(float &accelY);
     bool getRawAccelZ(float &accelZ);
+    uint16_t oldRaw[3] = {0};
+    float oldComp[3] = {0};
     byte adcPinX;
     byte adcPinY;
     byte adcPinZ;

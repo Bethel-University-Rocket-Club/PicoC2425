@@ -12,10 +12,15 @@ MPX5700GP::MPX5700GP(byte adcPin) {
 }
 
 bool MPX5700GP::getVelocity(float& velocity) {
-    static WindowAverage movingAverage = WindowAverage(520, 0.2);
+    static WindowAverage movingAverage = WindowAverage(512, 0.2);
     static const float convFactor = 3.3f / (1 << 12);
     adc_select_input(adcPin - 26);
     uint16_t raw = adc_read();
+    if(raw == oldRaw) {
+        velocity = oldVel;
+        return false;
+    }
+    oldRaw = raw;
     float vOut = movingAverage.update(raw * convFactor);
     //printf("voltage: %f\n", vOut);
     float p = (vOut/5.0-zeroVal)*777.7259294; //kpa
@@ -25,6 +30,7 @@ bool MPX5700GP::getVelocity(float& velocity) {
         p *= -1;
     }
     velocity = std::sqrt(2*p*airDensityRecip);
+    oldVel = velocity;
     return true;
 }
 
