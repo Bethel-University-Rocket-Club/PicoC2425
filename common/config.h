@@ -2,8 +2,10 @@
 #define CONFIG_H
 #define LED_PIN PICO_DEFAULT_LED_PIN // Pico's onboard LED pin
 #define BUZZ_PIN 28
+#define PRINT_PIN 14
+#define SDWRITE_PIN 15
 
-#define THRESHOLD (2*9.8) //2g's
+#define THRESHOLD (3*9.8) //2g's
 #define SEAPRESSURE 1013.25
 #define AIRDENSITY 1.3
 
@@ -12,6 +14,13 @@
 #define AGGSAMPLESIZE 10 //how many positions aggregate sample count is given when written
 #define INDSAMPLESIZE 10 //how many positions sensor specific sample count is given when written
 #define FLOATNUMSIZE 8 //how many positions a float number is given when written
+
+#define SDCARDCONFIG
+#define SDCARDCS 22 //gp
+#define SDCARDBUS 0 //spi0
+#define SDCARDSCK 2 //gp
+#define SDCARDMOSI 3 //gp
+#define SDCARDMISO 4 //gp
 
 #define GPSBUFCOUNT 2
 //Writer - DMA IRQ 0
@@ -45,15 +54,8 @@
 #define MPX5700GPCONFIG
 #define MPX5700GPANALOG 26 //gp
 
-#define MPU6050NOAX
-//#define MPU6050NOAY //off
-#define MPU6050NOAZ //on
-#define MPU6050INVAY //on
-//#define MPU6050INVAZ //off
-#define MPU6050NOGX
-#define MPU6050NOGY
-#define MPU6050NOGZ
-#define MPU6050NOTEMP
+#define ADXL377CONFIG
+#define ADXL377ANALOG 27 //gp
 
-#define CALCULATORMAXSIZE 4
+#define CALCULATORMAXSIZE 4 //sensor count
 #endif

@@ -4,7 +4,6 @@
 
 MPX5700GP::MPX5700GP(byte adcPin) {
     this->adcPin = adcPin;
-    adc_init();
     adc_gpio_init(adcPin);
     adc_select_input(adcPin - 26);
     adc_set_clkdiv(0);

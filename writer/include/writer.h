@@ -1,71 +1,47 @@
 #ifndef WRITER_H
 #define WRITER_H
 #include "common.h"
-#include "sd_card.h"
-#include "ff.h"
-#include "f_util.h"
+#include "pico/stdlib.h"
+#include "hardware/flash.h"
+#include "hardware/sync.h"
+#include "pico/multicore.h"
+#include "sdwriter.h"
 
-#ifndef SDBUFSIZE
-#define SDBUFSIZE 8192
-#endif
-#ifndef USTIMESIZE
-#define USTIMESIZE 12
-#endif
-#ifndef ADDSAMPLESIZE
-#define AGGSAMPLESIZE 10
-#endif
-#ifndef INDSAMPLESIZE
-#define INDSAMPLESIZE 10
-#endif
-#ifndef FLOATNUSMIZE
-#define FLOATNUMSIZE 8
-#endif
+#define STARTADDR (XIP_BASE + 320*1024) //overshooting program size
+#define ENDADDR (XIP_BASE + PICO_FLASH_SIZE_BYTES)
+#define DATABUFFERSTORESIZE 21
 
 class Writer {
     public:
-    Writer(sd_card_t* sdCard);
-    bool writeHeader();
-    bool close();
-    bool open(const char* name);
-    bool unmount();
-    bool mount();
-    bool writeData(DataBuffer* data);
-    bool flush();
-    bool checkConnection();
-
+        Writer();
+        bool writeData(DataBuffer* db, bool core0);
+        bool printData();
+        bool writeDataTo(SDWriter* sdw);
+        bool checkConnection();
+        bool writeHeader();
+        bool close(bool core0);
+        bool open(const char* name);
+        bool flush();
+        bool unmount();
+        bool clearFlash();
+        void dumpFlash(uint32_t startAddr, uint32_t length);
     private:
-    bool writeData(const char* data, int length);
-    const char* headerTime(int& length);
-    const char* headerSample(int& length);
-    const char* headerBMP(int& length);
-    const char* headerMPU(int& length);
-    const char* headerGT(int& length);
-    const char* headerPitot(int& length);
-    bool formatData(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatTime(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatSamples(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatNullBeforeSamples(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatDataSample(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatNullAfterSamples(char* startLocation, uint8_t& length, DataBuffer* data);
-    bool formatFloat(char* startLocation, uint8_t& length, float val, uint8_t decimalPrecision);
-    bool formatInt32(char* startLocation, uint8_t& length, uint32_t val);
-    bool formatInt64(char* startLocation, uint8_t& length, uint64_t val);
-    uint8_t countDigits20(uint64_t num);
-    uint8_t countDigits10(uint32_t num);
-    sd_card_t* sdCard;
-    FIL fileOut;
-    bool mounted;
-    bool fileOpen;
-    /*128 (12 positions for time in microseconds, 10 positions for aggregate sample count, 10 positions for individual sample count
-    //8 positions per number, for 12 fields)
-    //since its writing as a csv, these estimates for length of numbers (12 for time, 8 for float) are not going to be
-    //strictly followed
-    //*4 to get to 512 - sdcards typically have 512 byte sectors, writing in multiples of this is good
-    //*16 to minimize constant switching between not writing and writing
-    //8196 bytes (8kB) buffer size
-    */
-    char writeBuf[SDBUFSIZE*2];
-    uint16_t latestUnwrittenIndex = 0;
-    const char* curName;
+        bool flush(uint16_t start, uint32_t size);
+        bool core0flush(uint16_t start, uint32_t size);
+        bool parseData(DataBuffer* db, byte* buffer);
+        bool printDataBuffer(DataBuffer* db);
+
+        uint32_t nextWriteSector;
+        byte writeBuf[65536];
+        byte parseBuf[DATABUFFERSTORESIZE];
+        uint16_t flushSize = 256;
+        uint16_t nextWriteStartIndex = 0;
+        uint16_t nextWriteEndIndex = 0;
+        uint16_t BMPcount = 0;
+        uint16_t ADXcount = 0;
+        uint16_t GTUcount = 0;
+        uint16_t MPXcount = 0;
+        uint32_t aggCount = 0;
 };
+
 #endif

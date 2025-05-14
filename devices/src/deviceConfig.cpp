@@ -16,19 +16,8 @@ BMP280* Devices::GetPressureSensor() {
     return new BMP280(BMP280_I2CADDR, i2c);
 }
 
-MPU6050* Devices::GetAccelerometer() {
-    i2c_inst_t* i2c;
-    if(MPU6050BUS == 0) {
-        i2c = i2c0;
-    } else {
-        i2c = i2c1;
-    }
-    i2c_init(i2c, MPU6050FREQUENCY);
-    gpio_set_function(MPU6050SDA, GPIO_FUNC_I2C);
-    gpio_set_function(MPU6050SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(MPU6050SDA);
-    gpio_pull_up(MPU6050SCL);
-    return new MPU6050(MPU6050_I2CADDR, i2c);
+ADXL377* Devices::GetAccelerometer() {
+    return new ADXL377(0, ADXL377ANALOG, 0);
 }
 
 GTU7 *Devices::GetGPS() {
