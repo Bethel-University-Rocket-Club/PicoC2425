@@ -197,9 +197,9 @@ bool endCondition(float altitude) {
     //5 second test
     /*
     if(time_us_64() - STARTTIMEMICRO > 5000000) {
-        printf("end\n");
-        fflush(stdout);
-        return true;
+    printf("end\n");
+    fflush(stdout);
+    return true;
     }*/
     //printf("alt: %f, apg: %f end: %d\n", altitude, apogee, ended);
     if(altitude < apogee-5) {
@@ -271,7 +271,8 @@ void samplingLoop() {
     uint32_t countMPU = 0;
     uint32_t countGTU = 0;
     uint32_t countMPX = 0;
-    uint64_t analogSampleTime = STARTTIMEMICRO;
+    uint64_t adxSampleTime = STARTTIMEMICRO;
+    uint64_t mpuSampleTime = STARTTIMEMICRO;
     float measure = 0.0;
     while(!END) {
         elapsedTime = time_us_64() - STARTTIMEMICRO;
@@ -309,40 +310,40 @@ void samplingLoop() {
             }
         }
         elapsedTime = time_us_64() - STARTTIMEMICRO;
-        if(elapsedTime - analogSampleTime > 500) {
-            analogSampleTime = elapsedTime;
-            if(adx->getAccelY(measure) && !queue->isFull()) {
-                curWrite = queue->startEnqueue();
-                if(curWrite != nullptr) {
-                    measure *= -9.8;
-                    aggSampleCount++;
-                    countMPU++;
-                    curWrite->aggSampleNum = aggSampleCount;
-                    curWrite->sensorSampleNum = countMPU;
-                    curWrite->elapsedTime = elapsedTime;
-                    curWrite->sensorSample = measure;
-                    curWrite->sensorMax = 3;
-                    curWrite->sensorNum = 1;
-                    curWrite->sigDecimalDigits = 3;
-                    curWrite->data.values[2] = measure;
-                    queue->finishEnqueue();
-                }
+        if(elapsedTime - adxSampleTime > 5000 && adx->getAccelY(measure) && !queue->isFull()) {
+            adxSampleTime = elapsedTime;
+            curWrite = queue->startEnqueue();
+            if(curWrite != nullptr) {
+                measure *= -9.8;
+                aggSampleCount++;
+                countMPU++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countMPU;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 1;
+                curWrite->sigDecimalDigits = 3;
+                curWrite->data.values[2] = measure;
+                queue->finishEnqueue();
             }
-            if(mpx->getVelocity(measure) && !queue->isFull()) {
-                curWrite = queue->startEnqueue();
-                if(curWrite != nullptr) {
-                    aggSampleCount++;
-                    countMPX++;
-                    curWrite->aggSampleNum = aggSampleCount;
-                    curWrite->sensorSampleNum = countMPX;
-                    curWrite->elapsedTime = elapsedTime;
-                    curWrite->sensorSample = measure;
-                    curWrite->sensorMax = 3;
-                    curWrite->sensorNum = 3;
-                    curWrite->sigDecimalDigits = 2;
-                    curWrite->data.values[1] = measure;
-                    queue->finishEnqueue();
-                }
+        }
+        elapsedTime = time_us_64() - STARTTIMEMICRO;
+        if(elapsedTime - mpuSampleTime > 1000 && mpx->getVelocity(measure) && !queue->isFull()) {
+            mpuSampleTime = elapsedTime;
+            curWrite = queue->startEnqueue();
+            if(curWrite != nullptr) {
+                aggSampleCount++;
+                countMPX++;
+                curWrite->aggSampleNum = aggSampleCount;
+                curWrite->sensorSampleNum = countMPX;
+                curWrite->elapsedTime = elapsedTime;
+                curWrite->sensorSample = measure;
+                curWrite->sensorMax = 3;
+                curWrite->sensorNum = 3;
+                curWrite->sigDecimalDigits = 2;
+                curWrite->data.values[1] = measure;
+                queue->finishEnqueue();
             }
         }
     }
@@ -395,7 +396,7 @@ int main() {
             char received = getchar();
             if(!w->writeDataTo(sdw)) {
                 printf("Failed to write\n");
-                buzz(50000);
+                //buzz(50000); //sdcard not ready somehow
             }
         }
     }
