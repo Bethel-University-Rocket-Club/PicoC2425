@@ -9,9 +9,11 @@
 #include "deviceConfig.h"
 #include "calculator.h"
 #include "writer.h"
+#include "led_driver.h"
 #include "sdwriter.h"
 #include "circularQueue.h"
 #include "hw_config.h"
+
 
 Devices* d;
 SDWriter* sdw;
@@ -54,6 +56,7 @@ bool validateSensors() {
     uint8_t failCount = 0;
     while(!bmp->checkConnection() && failCount < 2) {
         printf("BMP error\n");
+        ws2812_leds_blink_code(LED_CODE_ERR_1,2,5000,2500);
         //buzz(10000); //pressure sensor problem
         //blink(1, 1000); //pressure sensor problem
         //blink(10, 250); //trying again
@@ -64,6 +67,7 @@ bool validateSensors() {
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!adx->checkConnection() && failCount < 2) {
+        ws2812_leds_blink_code(LED_CODE_ERR_2,2,5000,2500);
         //buzz(20000); //accelerometer problem
         //blink(2, 1000); //accelerometer problem
         //blink(10, 250); //trying again
@@ -75,6 +79,7 @@ bool validateSensors() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!gtu->checkConnection() && failCount < 2) {
         printf("GTU error\n");
+        ws2812_leds_blink_code(LED_CODE_ERR_3,2,5000,2500);
         //buzz(30000); //gps problem
         //blink(3, 1000); //gps problem
         //blink(10, 250); //trying again
@@ -86,6 +91,7 @@ bool validateSensors() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     /*
     while(!mpx->checkConnection()) {
+    ws2812_leds_blink_code(LED_CODE_ERR_4,2,5000,2500);
     buzz(4000);
     blink(4, 1000);
     blink(10, 250);
@@ -95,12 +101,14 @@ bool validateSensors() {
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     while(!sdw->checkConnection()) {
         printf("WRITER error\n");
+        ws2812_leds_blink_code(LED_CODE_ERR_5,2,5000,2500);
         //buzz(50000); //sdcard problem
         //blink(5, 1000); //sdcard problem
         //blink(10, 250); //trying again
     }
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    ws2812_leds_go_for_launch();
     return true;
 }
 
@@ -115,6 +123,18 @@ bool setup() {
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_set_dir(BUZZ_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    bool clock_set_successfully = set_sys_clock_khz(120000, true);
+    if (clock_set_successfully) {
+        printf("System clock set to: %lu kHz\n", clock_get_hz(clk_sys) / 1000);
+    } else {
+        printf("Failed to set system clock to the desired frequency!\n");
+        printf("Current system clock: %lu kHz\n", clock_get_hz(clk_sys) / 1000);
+    }
+    printf("Target LED PIO frequency: 800kHz (for WS2812B)\n");
+    printf("PIO program uses 10 PIO SM cycles per WS2812 bit.\n");
+    printf("Target PIO SM clock: %lu Hz\n", (unsigned long)(800000 * 10));
+    ws2812_leds_init();
+    ws2812_leds_blink_code(LED_CODE_ERR_8,1,1000,1000);
     //buzz(50); //first buzz, indicating pico has power and is starting to do stuff
     if(gpio_get(PRINT_PIN) || gpio_get(SDWRITE_PIN)) {
         return false;
@@ -366,11 +386,13 @@ int main() {
         while(!startCondition()) {
             tight_loop_contents();
         }
+        ws2812_leds_turn_off();
         //printf("started\n");
         multicore_lockout_victim_init();
         multicore_launch_core1(calcWriteLoop);
         samplingLoop();
         closeDown();
+        ws2812_set_leds_solid(COLOR_BLUE,COLOR_BLUE);
         //printf("ended\n");
         fflush(stdout);
     } else {
@@ -402,5 +424,6 @@ int main() {
     }
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
     fflush(stdout);
+    ws2812_set_leds_solid(COLOR_BLUE,COLOR_BLUE);
     return 0;
 }

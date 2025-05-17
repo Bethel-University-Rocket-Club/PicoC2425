@@ -60,6 +60,12 @@ set(QUEUE_SOURCES
     queue/src/circularQueue.cpp
 )
 
+# List your LED source files
+set(LED_DRIVER_SOURCES
+    led_driver/led_driver.cpp
+    led_driver/ws2812.pio
+)
+
 # Add the FatFs_SPI library
 add_subdirectory(no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI build)
 
@@ -70,7 +76,13 @@ add_executable(main
     ${CALCULATOR_SOURCES}
     ${WRITER_SOURCES}
     ${QUEUE_SOURCES}
+    ${LED_DRIVER_SOURCES}
 )
+
+# Generate the C header from the .pio file for the 'main' target.
+# This creates ws2812.pio.h which is included by ws2812_utils.c
+# Ensure the path to your .pio file is correct.
+pico_generate_pio_header(main ${CMAKE_CURRENT_LIST_DIR}/led_driver/ws2812.pio)
 
 # Add the devices/include directory to the include path
 target_include_directories(main PRIVATE
@@ -80,6 +92,7 @@ target_include_directories(main PRIVATE
     writer/include
     queue/include
     common
+    led_driver
 )
 
 pico_set_program_name(main "RocketClub2425C++Code")
