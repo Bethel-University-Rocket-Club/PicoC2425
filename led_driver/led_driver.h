@@ -6,7 +6,7 @@
 
 // --- Configuration ---
 #define NUM_LEDS_CFG 2          // We are controlling 2 LEDs
-#define WS2812_PIN_CFG 6        // GPIO pin for NeoPixel data line (e.g., GP4)
+#define WS2812_PIN_CFG 14        // GPIO pin for NeoPixel data line (e.g., GP4)
 #define IS_RGBW_CFG false       // Set to true if using RGBW NeoPixels, false for RGB
 
 // --- Color Definitions (GRB format: Green byte, Red byte, Blue byte) ---

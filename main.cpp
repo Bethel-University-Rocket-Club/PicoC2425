@@ -108,7 +108,6 @@ bool validateSensors() {
     }
     sleep_ms(10);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    ws2812_leds_go_for_launch();
     return true;
 }
 
@@ -123,7 +122,7 @@ bool setup() {
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_set_dir(BUZZ_PIN, GPIO_OUT);
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
-    bool clock_set_successfully = set_sys_clock_khz(120000, true);
+    /*bool clock_set_successfully = set_sys_clock_khz(120000, true);
     if (clock_set_successfully) {
         printf("System clock set to: %lu kHz\n", clock_get_hz(clk_sys) / 1000);
     } else {
@@ -133,17 +132,19 @@ bool setup() {
     printf("Target LED PIO frequency: 800kHz (for WS2812B)\n");
     printf("PIO program uses 10 PIO SM cycles per WS2812 bit.\n");
     printf("Target PIO SM clock: %lu Hz\n", (unsigned long)(800000 * 10));
+    */
     ws2812_leds_init();
-    ws2812_leds_blink_code(LED_CODE_ERR_8,1,1000,1000);
     //buzz(50); //first buzz, indicating pico has power and is starting to do stuff
     if(gpio_get(PRINT_PIN) || gpio_get(SDWRITE_PIN)) {
         return false;
     }
+    ws2812_leds_blink_code(LED_CODE_ERR_8,1,1000,1000);
     validateSensors();
     printf("validated\n");
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     sdw->writeHeader();
     printf("header written\n");
+    printf("Current system clock: %lu kHz\n", clock_get_hz(clk_sys) / 1000);
     bmp->setSeaPressure(SEAPRESSURE);
     mpx->setAirDensity(AIRDENSITY);
     float measure = 0.0;
@@ -157,6 +158,7 @@ bool setup() {
     c->configureInitialOffset(GTUID, measure);
     mpx->getDrift(measure);
     c->configureInitialOffset(MPXID, measure);
+    ws2812_leds_go_for_launch();
     return true;
 }
 
@@ -167,6 +169,7 @@ bool startCondition() {
     while(true) {
         //ADX arrow direction indicates that if oriented downwards, gravity is negative
         adx->getAccelY(accelUp);
+        //printf("Accelerometer X: %.2f m/s^2\n", accelUp * 9.8);
         bmp->getAltitude(alt);
         gtu->getAltitude(alt2);
         if(!ADXFail) {
@@ -216,11 +219,12 @@ bool endCondition(float altitude) {
     static uint32_t apogeeTime = STARTTIMEMICRO;
     //5 second test
     /*
-    if(time_us_64() - STARTTIMEMICRO > 5000000) {
+    if(time_us_64() - STARTTIMEMICRO > 25000000) {
     printf("end\n");
     fflush(stdout);
     return true;
-    }*/
+    }
+    */
     //printf("alt: %f, apg: %f end: %d\n", altitude, apogee, ended);
     if(altitude < apogee-5) {
         //1 second of the measurement being below apogee
@@ -381,7 +385,7 @@ int main() {
         //buzz(5000); //warning that flash is about to be erased
         printf("beginClearFlash\n");
         w->clearFlash();
-        //printf("endClearFlash\n");
+        printf("endClearFlash\n");
         //buzz(50); //third buzz, ready for launch
         while(!startCondition()) {
             tight_loop_contents();
