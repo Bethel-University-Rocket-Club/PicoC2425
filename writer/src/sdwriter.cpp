@@ -1,4 +1,4 @@
-#include "SDWriter.h"
+#include "sdwriter.h"
 
 SDWriter::SDWriter(sd_card_t* sdCard) {
     this->sdCard = sdCard;
