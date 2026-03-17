@@ -119,6 +119,20 @@ bool validateSensors() {
 }
 
 /*
+ * setOffsets - sets value to be subtracted from future sensor measurements that
+ * need to be zeroed at start.
+*/
+void setOffsets() {
+    float measure = 0.0;
+    bmp->getAltitude(measure);
+    c->configureInitialOffset(BMPID, measure);
+    gtu->getAltitude(measure);
+    c->configureInitialOffset(GTUID, measure);
+    mpx->getDrift(measure);
+    c->configureInitialOffset(MPXID, measure);
+}
+
+/*
  * setup - performs all setup work to verify all sensors and architecture are ready to be used
  * Return - true if everything is usable, false otherwise
 */
@@ -199,20 +213,6 @@ bool startCondition() {
         }
     }
     return false;
-}
-
-/*
- * setOffsets - sets value to be subtracted from future sensor measurements that
- * need to be zeroed at start.
-*/
-void setOffsets() {
-    float measure = 0.0;
-    bmp->getAltitude(measure);
-    c->configureInitialOffset(BMPID, measure);
-    gtu->getAltitude(measure);
-    c->configureInitialOffset(GTUID, measure);
-    mpx->getDrift(measure);
-    c->configureInitialOffset(MPXID, measure);
 }
 
 /*
